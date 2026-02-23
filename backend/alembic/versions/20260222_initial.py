@@ -4,11 +4,10 @@ Revision ID: 20260222_initial
 Revises:
 Create Date: 2026-02-22
 
+This migration intentionally creates no tables. Schema objects are added in
+subsequent revisions (for example, episodic_memory in Phase 3).
 """
 from typing import Sequence, Union
-
-from alembic import op
-import sqlalchemy as sa
 
 revision: str = "20260222_initial"
 down_revision: Union[str, None] = None
@@ -17,10 +16,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """No tables in Phase 1; episodic_memory added in Phase 3."""
-    pass
+    """No-op upgrade for initial revision."""
+    return None
 
 
 def downgrade() -> None:
-    """No tables to drop."""
-    pass
+    """No-op downgrade for initial revision."""
+    return None

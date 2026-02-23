@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from app.core.errors import AllProvidersDown
 from app.llm.circuit_breaker import CircuitBreaker
@@ -42,7 +44,7 @@ async def test_all_providers_down_raises() -> None:
     ]
     gateway = LLMGateway(providers=providers)
 
-    async def failing_call(_provider, _request):
+    async def failing_call(_provider: ProviderConfig, _request: LLMRequest) -> Any:
         raise RuntimeError("boom")
 
     # Patch the internal call helper to avoid hitting real LiteLLM.

@@ -69,13 +69,31 @@ class TalonSettings(BaseSettings):
         """Path to structured log file."""
         return self.project_root / "data" / "logs" / "talon.jsonl"
 
+    @property
+    def memories_dir(self) -> Path:
+        """Directory containing Markdown memory source files."""
+        return self.project_root / "data" / "memories"
 
-def get_settings() -> TalonSettings:
-    """Return cached settings instance."""
-    return _settings
+    @property
+    def core_matrix_path(self) -> Path:
+        """Path to compiled core matrix JSON (output of compressor)."""
+        return self.project_root / "data" / "core_matrix.json"
 
 
 _settings: TalonSettings | None = None
+
+
+def get_settings() -> TalonSettings:
+    """Return cached settings instance, initializing if needed.
+
+    In normal app startup, `init_settings` is called first. Tests and
+    scripts may call `get_settings` directly, so we lazily initialize
+    here as well to satisfy the non-None contract.
+    """
+    global _settings
+    if _settings is None:
+        _settings = TalonSettings()
+    return _settings
 
 
 def init_settings() -> TalonSettings:

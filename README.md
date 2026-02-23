@@ -2,13 +2,13 @@
 
 Self-hosted personal AI gateway for a single operator. Licensed under [AGPL v3](LICENSE). Inspired by OpenClaw (Node.js/TypeScript). Python/TypeScript stack on a single Hostinger VPS.
 
-**Status: Phases 1–2 complete.** Foundation is implemented (FastAPI skeleton, config, logging, PostgreSQL+Alembic, health endpoint, deploy configs) and the basic LLM gateway is online (`/api/chat`, `/api/sse/{session_id}`, `config/providers.yaml`).
+**Status: Phases 1–3 complete.** Foundation is implemented (FastAPI skeleton, config, logging, PostgreSQL+Alembic, health endpoint, deploy configs), the LLM gateway is online (`/api/chat`, `/api/sse/{session_id}`, `config/providers.yaml`), and the three-tier memory engine is wired up (core matrix compiler, episodic pgvector store, working memory, `/api/memory`).
 
 - **Stack:** FastAPI, PostgreSQL+pgvector, React+Vite, SSE streaming, LiteLLM, APScheduler
 - **Docs:** See [AGENTS.md](AGENTS.md) for full spec and [`.cursor/plans/`](.cursor/plans/) for phased implementation roadmap (8 phases)
 - **CI:** GitHub Actions runs backend lint (ruff, pyright) + tests (`make test`) on pushes to `main` and `feature/**` and on all PRs.
 
-## Quick Start (Backend Phases 1–2)
+## Quick Start (Backend Phases 1–3)
 
 ```bash
 # 1. Create virtualenv and install deps
@@ -27,9 +27,21 @@ make migrate
 make dev
 
 # 5. Verify (and reuse for later phases)
-curl http://localhost:8000/api/health  # status + provider circuit breaker info
+curl http://localhost:8000/api/health  # status + provider circuit breaker + memory stats
+curl http://localhost:8000/api/memory  # compiled core_matrix + basic memory stats
 make test  # backend tests for all phases (gateway, memory, skills, ...)
 ```
+
+### Available endpoints (Phases 1–3)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/health` | Health status, provider circuit breakers, memory stats (`core_tokens`, `episodic_count`) |
+| GET | `/api/memory` | Compiled core matrix JSON and memory stats (debug / introspection) |
+| POST | `/api/chat` | Send a message; body `{"message":"…","session_id":"…"}` |
+| GET | `/api/sse/{session_id}?prompt=…` | Server-sent event stream of LLM tokens for the given prompt |
+
+Interactive API docs when the server is running: `http://localhost:8000/docs`.
 
 ## VPS Deploy (Phase 1)
 

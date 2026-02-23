@@ -1,6 +1,7 @@
 """structlog configuration and SecretMasker processor."""
 
 from pathlib import Path
+from typing import Any
 
 import structlog
 
@@ -30,17 +31,18 @@ def configure_logging(
     else:
         logger_factory = structlog.PrintLoggerFactory()
 
-    structlog.configure(
-        processors=[
-            structlog.contextvars.merge_contextvars,
-            structlog.stdlib.filter_by_level,
-            structlog.processors.add_log_level,
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-            SecretMasker(),
-            structlog.processors.JSONRenderer(),
-        ],
+    processors: list[Any] = [
+        structlog.contextvars.merge_contextvars,
+        structlog.stdlib.filter_by_level,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        SecretMasker(),
+        structlog.processors.JSONRenderer(),
+    ]
+    structlog.configure(  # type: ignore[arg-type]
+        processors=processors,
         logger_factory=logger_factory,
         cache_logger_on_first_use=True,
     )

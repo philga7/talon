@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import litellm
 import yaml  # type: ignore[reportMissingModuleSource]
@@ -153,10 +153,11 @@ class LLMGateway:
         # LiteLLM reads API keys from env vars; we keep explicit here to make
         # tests simpler, but do not log the key.
         response = await litellm.acompletion(api_key=api_key, **litellm_params)
+        raw = cast(dict[str, Any], response)
 
         # The exact OpenAI-compatible shape is documented by LiteLLM; we only
         # rely on the minimal fields we need here.
-        choices = response.get("choices") or []
+        choices = raw.get("choices") or []
         if not choices:
             msg = f"Provider {provider.name} returned no choices"
             raise RuntimeError(msg)
@@ -164,7 +165,7 @@ class LLMGateway:
         message = choices[0]["message"]
         content = message.get("content") or ""
 
-        usage = response.get("usage") or {}
+        usage = cast(dict[str, Any], raw.get("usage") or {})
         tokens = {
             "prompt_tokens": int(usage.get("prompt_tokens") or 0),
             "completion_tokens": int(usage.get("completion_tokens") or 0),
@@ -194,9 +195,13 @@ class LLMGateway:
         if request.max_tokens is not None:
             litellm_params["max_tokens"] = request.max_tokens
 
-        async for chunk in litellm.acompletion(api_key=api_key, **litellm_params):
+        stream = cast(Any, litellm.acompletion(api_key=api_key, **litellm_params))
+        async for chunk in stream:
             # LiteLLM streams OpenAI-style ChatCompletionChunk objects.
-            choices = getattr(chunk, "choices", None) or chunk.get("choices") or []
+            choices = getattr(chunk, "choices", None)
+            if choices is None and isinstance(chunk, dict):
+                choices = chunk.get("choices") or []
+            choices = choices or []
             if not choices:
                 continue
             delta = choices[0].get("delta") or {}

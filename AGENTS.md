@@ -31,7 +31,7 @@ Core responsibilities:
 | LLM routing | LiteLLM | Circuit breaker + fallback chain |
 | Database | PostgreSQL 16 + pgvector | Docker container, `asyncpg` driver |
 | ORM / migrations | SQLAlchemy 2 (async) + Alembic | All models in `backend/app/models/` |
-| Memory | Custom compressor → JSON matrix | Markdown source → compiled binary |
+| Memory | Three-tier engine (core, episodic, working) | Markdown → core matrix JSON (`data/memories` → `data/core_matrix.json`), episodic pgvector store (`episodic_memory`), working session dict; introspection via `/api/memory` and `health.memory` |
 | Scheduler | APScheduler (AsyncIOScheduler) | Jobs persist in PostgreSQL |
 | File watching | watchdog | Hot-reload for skills + config |
 | Frontend | React 18 + Vite + TypeScript | `frontend/` directory |
