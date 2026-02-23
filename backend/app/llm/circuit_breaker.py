@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from time import monotonic
 from typing import Literal
 
-
 BreakerState = Literal["closed", "open", "half_open"]
 
 

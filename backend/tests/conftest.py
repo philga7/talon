@@ -11,9 +11,9 @@ from httpx import ASGITransport, AsyncClient
 os.environ.setdefault("DB_PASSWORD", "test")
 
 
-from app.main import app  # noqa: E402
 from app.dependencies import get_gateway  # noqa: E402
 from app.llm.models import LLMResponse, ProviderStatus  # noqa: E402
+from app.main import app  # noqa: E402
 
 
 class FakeGateway:

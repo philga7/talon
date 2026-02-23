@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.chat import router as chat_router
 from app.api.health import router as health_router
 from app.api.sse import router as sse_router
-from app.core.config import get_settings, init_settings, TalonSettings
+from app.core.config import TalonSettings, get_settings, init_settings
 from app.core.logging import configure_logging
 from app.core.middleware import CorrelationIDMiddleware, RateLimitMiddleware
 from app.dependencies import init_db, init_gateway

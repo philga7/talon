@@ -7,7 +7,6 @@ from app.dependencies import get_gateway
 from app.llm.gateway import LLMGateway
 from app.llm.models import ProviderStatus
 
-
 router = APIRouter(prefix="/api", tags=["health"])
 
 
@@ -28,7 +27,7 @@ class HealthResponse(BaseModel):
 
 
 @router.get("/health", response_model=HealthResponse)
-async def health(gateway: LLMGateway = Depends(get_gateway)) -> HealthResponse:
+async def health(gateway: LLMGateway = Depends(get_gateway)) -> HealthResponse:  # noqa: B008
     """Return basic health status including LLM providers."""
     statuses: list[ProviderStatus] = gateway.get_provider_statuses()
     providers = [

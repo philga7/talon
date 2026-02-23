@@ -8,7 +8,6 @@ from app.dependencies import get_gateway
 from app.llm.gateway import LLMGateway
 from app.llm.models import ChatMessage, LLMRequest, LLMResponse
 
-
 router = APIRouter(prefix="/api", tags=["chat"])
 
 
@@ -30,7 +29,7 @@ class ChatResponse(BaseModel):
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
-    gateway: LLMGateway = Depends(get_gateway),
+    gateway: LLMGateway = Depends(get_gateway),  # noqa: B008
 ) -> ChatResponse:
     """Send a single-turn chat message to the LLM gateway."""
     llm_request = LLMRequest(

@@ -1,12 +1,12 @@
 """Chat API tests."""
 
-import pytest
-from httpx import AsyncClient
 from unittest.mock import AsyncMock
 
-from app.main import app
+import pytest
 from app.dependencies import get_gateway
 from app.llm.models import LLMResponse
+from app.main import app
+from httpx import AsyncClient
 
 
 @pytest.mark.asyncio

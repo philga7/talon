@@ -6,7 +6,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-
 ChatRole = Literal["system", "user", "assistant", "tool"]
 
 

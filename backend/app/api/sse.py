@@ -11,7 +11,6 @@ from app.dependencies import get_gateway
 from app.llm.gateway import LLMGateway
 from app.llm.models import ChatMessage, LLMRequest
 
-
 router = APIRouter(prefix="/api", tags=["sse"])
 
 
@@ -34,7 +33,7 @@ async def _event_stream(
 async def sse(
     session_id: str,
     prompt: str = Query(..., min_length=1, max_length=32_000),
-    gateway: LLMGateway = Depends(get_gateway),
+    gateway: LLMGateway = Depends(get_gateway),  # noqa: B008
 ) -> StreamingResponse:
     """Server-Sent Events stream of tokens for a single prompt."""
 

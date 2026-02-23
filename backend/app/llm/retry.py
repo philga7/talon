@@ -7,11 +7,10 @@ import random
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
-
 T = TypeVar("T")
 
 
-async def retry_async(
+async def retry_async(  # noqa: UP047
     operation: Callable[[], Awaitable[T]],
     *,
     max_attempts: int = 3,

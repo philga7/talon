@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
-from time import monotonic
-
 import pytest
-
 from app.core.errors import AllProvidersDown
 from app.llm.circuit_breaker import CircuitBreaker
 from app.llm.gateway import LLMGateway
-from app.llm.models import ChatMessage, LLMRequest, LLMResponse, ProviderConfig
+from app.llm.models import ChatMessage, LLMRequest, ProviderConfig
 
 
 def test_opens_after_threshold() -> None:

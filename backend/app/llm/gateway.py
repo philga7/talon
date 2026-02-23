@@ -14,15 +14,8 @@ from structlog import get_logger
 from app.core.config import TalonSettings
 from app.core.errors import AllProvidersDown
 from app.llm.circuit_breaker import CircuitBreaker
-from app.llm.models import (
-    ChatMessage,
-    LLMRequest,
-    LLMResponse,
-    ProviderConfig,
-    ProviderStatus,
-)
+from app.llm.models import LLMRequest, LLMResponse, ProviderConfig, ProviderStatus
 from app.llm.retry import retry_async
-
 
 log = get_logger()
 
@@ -84,8 +77,11 @@ class LLMGateway:
                 continue
 
             try:
+                async def _op(provider_config: ProviderConfig = provider) -> LLMResponse:
+                    return await self._call_provider(provider_config, request)
+
                 response = await retry_async(
-                    lambda: self._call_provider(provider, request),
+                    _op,
                     max_attempts=provider.max_retries,
                 )
             except BaseException as exc:  # noqa: BLE001 - deliberate catch
