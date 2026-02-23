@@ -1,5 +1,7 @@
 """SSE endpoint tests."""
 
+from typing import Any
+
 import pytest
 from app.dependencies import get_gateway
 from app.main import app
@@ -7,7 +9,7 @@ from httpx import AsyncClient
 
 
 class GatewayWithStream:
-    async def stream(self, _request):
+    async def stream(self, _request: Any) -> Any:
         yield "foo"
         yield "bar"
 

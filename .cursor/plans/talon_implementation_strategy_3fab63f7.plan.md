@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: phase-3
     content: "Phase 3: Memory Engine -- Compressor, memory source files, EpisodicMemory model + pgvector, episodic store, working memory, MemoryEngine orchestrator, prompt assembly"
-    status: pending
+    status: completed
   - id: phase-4
     content: "Phase 4: Skills + Chat Router -- BaseSkill, registry, executor, ChatRouter, tool-calling loop, SSE streaming, port searxng_search + yahoo_finance skills"
     status: pending

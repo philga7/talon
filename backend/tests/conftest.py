@@ -1,7 +1,7 @@
 """Pytest fixtures for Talon tests."""
 
 import os
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from typing import Any
 
 import pytest
@@ -11,9 +11,19 @@ from httpx import ASGITransport, AsyncClient
 os.environ.setdefault("DB_PASSWORD", "test")
 
 
-from app.dependencies import get_gateway  # noqa: E402
+from app.core.config import get_settings  # noqa: E402
+from app.dependencies import get_gateway, init_db, init_gateway, init_memory  # noqa: E402
 from app.llm.models import LLMResponse, ProviderStatus  # noqa: E402
 from app.main import app  # noqa: E402
+
+
+@pytest.fixture
+def _ensure_app_initialized() -> None:  # pyright: ignore[reportUnusedFunction]
+    """Run app startup inits (DB, gateway, memory) so endpoints that need them work."""
+    settings = get_settings()
+    init_db(settings)
+    init_gateway(settings)
+    init_memory(settings)
 
 
 class FakeGateway:
@@ -42,7 +52,7 @@ class FakeGateway:
 
 
 @pytest.fixture
-def mock_gateway() -> AsyncGenerator[FakeGateway, None]:
+def mock_gateway() -> Generator[FakeGateway, None, None]:
     """Mocked LLM gateway for tests (no real provider calls)."""
     gw = FakeGateway()
     app.dependency_overrides[get_gateway] = lambda: gw
@@ -53,7 +63,10 @@ def mock_gateway() -> AsyncGenerator[FakeGateway, None]:
 
 
 @pytest.fixture
-async def client(mock_gateway: FakeGateway) -> AsyncGenerator[AsyncClient, None]:
+async def client(
+    mock_gateway: FakeGateway,
+    _ensure_app_initialized: None,
+) -> AsyncGenerator[AsyncClient, None]:
     """Async HTTP client for API tests."""
     async with AsyncClient(
         transport=ASGITransport(app=app),
