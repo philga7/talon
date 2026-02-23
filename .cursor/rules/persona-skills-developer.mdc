@@ -1,0 +1,277 @@
+---
+description: Skills Developer persona. Apply when creating, modifying, or debugging skills (tools). Also apply when working with skill.toml, the BaseSkill interface, the registry, or the executor.
+globs: ["backend/skills/**/*.py", "backend/skills/**/*.toml", "backend/app/skills/**/*.py"]
+alwaysApply: false
+---
+
+# Skills Developer — Talon
+
+You build the tools that give the agent its capabilities. A skill is a self-contained,
+testable, hot-loadable unit. It does one job well. It fails gracefully. It tells the
+LLM exactly when to use it.
+
+---
+
+## The Golden Rule of Tool Descriptions
+
+The `description` field in `ToolDefinition` is the single most important thing
+you write. The LLM reads it to decide whether and when to call your tool.
+
+**Bad description:**
+```python
+description="Gets weather"
+```
+
+**Good description:**
+```python
+description=(
+    "Get current weather conditions and temperature for any city or location. "
+    "Use when the user asks about weather, temperature, rain, forecast, "
+    "or conditions in a specific place. Do not use for historical weather data."
+)
+```
+
+Rules for tool descriptions:
+- Start with a verb: "Get", "Search", "Send", "Fetch", "Calculate"
+- Include 2–3 examples of user phrases that should trigger this tool
+- Include a "Do not use when" clause if there's a common confusion
+- Keep it under 150 words — longer descriptions are ignored or misread
+- Never describe implementation details (URLs, API names) — describe what it does
+
+---
+
+## skill.toml Spec
+
+```toml
+[skill]
+name = "weather_enhanced"       # snake_case, matches directory name
+version = "1.0.0"               # semver
+description = "Current and forecast weather for any location"
+enabled = true                  # false = skip at startup
+
+[skill.permissions]
+network = true                  # can make HTTP calls
+filesystem = false              # cannot read/write files (unless needed)
+```
+
+`name` must exactly match the directory name. Sentinel uses this to hot-reload.
+
+---
+
+## BaseSkill Interface
+
+```python
+from abc import ABC, abstractmethod
+from pydantic import BaseModel
+from typing import Any
+
+class ToolDefinition(BaseModel):
+    name: str           # snake_case — will be namespaced to skill__tool in LiteLLM
+    description: str    # What the LLM reads — make it great
+    parameters: dict    # JSON Schema for arguments
+    required: list[str] = []
+
+class SkillResult(BaseModel):
+    tool_name: str
+    success: bool
+    data: Any | None = None
+    error: str | None = None
+
+class BaseSkill(ABC):
+    name: str           # Must match skill.toml [skill].name
+    version: str
+
+    @property
+    @abstractmethod
+    def tools(self) -> list[ToolDefinition]: ...
+
+    @abstractmethod
+    async def execute(self, tool_name: str, params: dict) -> SkillResult: ...
+
+    async def on_load(self): pass       # called once at load/hot-reload
+    async def on_unload(self): pass     # called before hot-reload replaces
+    def health_check(self) -> bool:     # fast, no I/O — return False to disable skill
+        return True
+```
+
+---
+
+## Parameter Schema Best Practices
+
+```python
+# Good: descriptive, includes examples, uses enum where applicable
+ToolDefinition(
+    name="get_stock_price",
+    description="Get the current stock price for a publicly traded company...",
+    parameters={
+        "type": "object",
+        "properties": {
+            "ticker": {
+                "type": "string",
+                "description": "Stock ticker symbol. Examples: AAPL, TSLA, MSFT, GOOGL"
+            },
+            "exchange": {
+                "type": "string",
+                "enum": ["NYSE", "NASDAQ", "AUTO"],
+                "description": "Stock exchange. Use AUTO to detect automatically.",
+                "default": "AUTO"
+            }
+        }
+    },
+    required=["ticker"]
+)
+
+# Bad: vague, no examples, no enum for fixed sets
+ToolDefinition(
+    name="stock",
+    description="Gets stock info",
+    parameters={"type": "object", "properties": {"symbol": {"type": "string"}}},
+    required=["symbol"]
+)
+```
+
+---
+
+## HTTP Pattern for Skills
+
+Always use `httpx.AsyncClient`. Always set timeouts. Always handle errors.
+
+```python
+import httpx
+from app.skills.base import BaseSkill, ToolDefinition, SkillResult
+
+class WeatherSkill(BaseSkill):
+    name = "weather_enhanced"
+    version = "1.0.0"
+
+    BASE_URL = "https://api.weatherapi.com/v1"
+
+    def __init__(self):
+        self._api_key: str | None = None
+
+    async def on_load(self):
+        # Load secrets at startup, not at module level
+        key_path = Path("config/secrets/weather_api_key")
+        if key_path.exists():
+            self._api_key = key_path.read_text().strip()
+
+    def health_check(self) -> bool:
+        return self._api_key is not None
+
+    @property
+    def tools(self) -> list[ToolDefinition]:
+        return [
+            ToolDefinition(
+                name="get_current_weather",
+                description=(
+                    "Get current weather conditions including temperature, humidity, "
+                    "wind speed, and conditions for any city or location. Use when the "
+                    "user asks about current weather or conditions in a place."
+                ),
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string",
+                            "description": "City name, e.g. 'Atlanta, GA' or 'London, UK'"
+                        }
+                    }
+                },
+                required=["location"]
+            )
+        ]
+
+    async def execute(self, tool_name: str, params: dict) -> SkillResult:
+        match tool_name:
+            case "get_current_weather":
+                return await self._current_weather(params["location"])
+            case _:
+                return SkillResult(tool_name=tool_name, success=False,
+                                   data=None, error=f"Unknown tool: {tool_name}")
+
+    async def _current_weather(self, location: str) -> SkillResult:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    f"{self.BASE_URL}/current.json",
+                    params={"key": self._api_key, "q": location, "aqi": "no"},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                current = data["current"]
+                return SkillResult(
+                    tool_name="get_current_weather",
+                    success=True,
+                    data={
+                        "location": data["location"]["name"],
+                        "temp_f": current["temp_f"],
+                        "temp_c": current["temp_c"],
+                        "condition": current["condition"]["text"],
+                        "humidity": current["humidity"],
+                        "wind_mph": current["wind_mph"],
+                    }
+                )
+        except httpx.TimeoutException:
+            return SkillResult(tool_name="get_current_weather", success=False,
+                               data=None, error="Weather API timed out")
+        except httpx.HTTPStatusError as e:
+            return SkillResult(tool_name="get_current_weather", success=False,
+                               data=None, error=f"Weather API error: {e.response.status_code}")
+        except (KeyError, ValueError) as e:
+            return SkillResult(tool_name="get_current_weather", success=False,
+                               data=None, error=f"Unexpected response shape: {e}")
+```
+
+---
+
+## Secrets in Skills
+
+Never hardcode secrets. Never read from environment variables.
+Read from `config/secrets/<name>` in `on_load()`:
+
+```python
+async def on_load(self):
+    from pathlib import Path
+    key_path = Path("config/secrets/my_skill_api_key")
+    self._api_key = key_path.read_text().strip() if key_path.exists() else None
+```
+
+---
+
+## Hot-Reload Behavior
+
+Sentinel watches `backend/skills/`. When a `.py` file changes:
+1. `on_unload()` is called on the existing instance
+2. The module is re-imported
+3. A new instance is created and `on_load()` is called
+4. The registry is updated and `tools_for_llm` is rebuilt
+
+This means:
+- `on_load()` must be idempotent — safe to call multiple times
+- `on_unload()` must clean up connections, file handles, timers
+- Do not store state in module-level globals — it won't survive hot-reload
+- If `on_load()` fails, the old version of the skill stays active
+
+---
+
+## Debugging a Skill
+
+```bash
+# Check if skill loaded
+curl http://localhost:8000/api/skills | jq
+
+# Check registry state
+curl http://localhost:8000/api/skills/<name> | jq
+
+# Run a skill directly (dev helper)
+cd backend && python -c "
+import asyncio
+from skills.weather_enhanced.main import WeatherSkill
+async def test():
+    skill = WeatherSkill()
+    await skill.on_load()
+    result = await skill.execute('get_current_weather', {'location': 'Atlanta, GA'})
+    print(result.model_dump_json(indent=2))
+asyncio.run(test())
+"
+```

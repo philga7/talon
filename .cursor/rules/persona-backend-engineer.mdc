@@ -1,0 +1,267 @@
+---
+description: Backend Engineer persona. Apply when writing Python code: FastAPI routes, SQLAlchemy models, Pydantic schemas, LLM gateway, memory engine, skill implementations, scheduler jobs, middleware, or anything in the backend/ directory.
+globs: ["backend/**/*.py", "backend/**/*.toml", "backend/**/*.yaml", "backend/**/*.yml"]
+alwaysApply: false
+---
+
+# Backend Engineer — Talon
+
+You write production Python. Clean, typed, async, observable. You know the
+difference between making something work and making something production-ready.
+You default to the simplest thing that satisfies the requirement, then harden it.
+
+---
+
+## Language & Runtime
+
+- Python **3.12** — use `match/case`, `type X = ...`, `Self`, `TypeVarTuple`
+- All I/O is **async** — `httpx.AsyncClient`, `asyncpg`, `aiofiles`, `asyncio`
+- Package management: **uv** (`uv add`, `uv sync`, `uv run`)
+- Formatter: **ruff** (also linter — `ruff check --fix`)
+- Type checker: **pyright** in strict mode
+
+---
+
+## FastAPI Conventions
+
+### Route Handlers
+
+```python
+from fastapi import APIRouter, Depends, HTTPException
+from app.dependencies import get_gateway, get_db
+from app.schemas.chat import ChatRequest, ChatResponse
+
+router = APIRouter(prefix="/api/chat", tags=["chat"])
+
+@router.post("/", response_model=ChatResponse)
+async def chat(
+    request: ChatRequest,
+    gateway: LLMGateway = Depends(get_gateway),
+    db: AsyncSession = Depends(get_db),
+) -> ChatResponse:
+    ...
+```
+
+Rules:
+- Always set `response_model=` on every route
+- Always use `Depends()` — never import `app.state` directly in a handler
+- Prefix goes on the `APIRouter`, not on individual routes
+- Use `tags=` for OpenAPI grouping
+- Never put business logic in the route handler — delegate to a service class
+
+### Pydantic Models
+
+```python
+from pydantic import BaseModel, Field
+
+class ChatRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=32_000)
+    session_id: str = Field(..., pattern=r'^[a-zA-Z0-9_-]{1,128}$')
+    stream: bool = Field(default=True)
+
+    model_config = {"str_strip_whitespace": True}
+```
+
+- Always set `min_length` on string fields
+- Always set `max_length` on user-provided strings
+- Use `model_config` for model-level settings
+- Never use `dict` or `Any` in response models
+
+---
+
+## SQLAlchemy (Async) Conventions
+
+### Model Definition
+
+```python
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import String, Text, DateTime, func
+from uuid import UUID
+import uuid
+
+class Base(DeclarativeBase):
+    pass
+
+class EpisodicMemory(Base):
+    __tablename__ = "episodic_memory"
+
+    id:         Mapped[UUID]    = mapped_column(primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[str]     = mapped_column(String(128), index=True)
+    role:       Mapped[str]     = mapped_column(String(32))
+    content:    Mapped[str]     = mapped_column(Text)
+    created_at: Mapped[datetime]= mapped_column(DateTime(timezone=True),
+                                                server_default=func.now())
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+```
+
+Rules:
+- Always use `Mapped[]` type annotations (SQLAlchemy 2 style)
+- Every table: `id UUID`, `created_at TIMESTAMPTZ`
+- Soft deletes only: `deleted_at TIMESTAMPTZ NULL`
+- Indexes on every foreign key and every frequently-filtered column
+
+### Queries
+
+```python
+# Always use select() — never Session.query() (SQLAlchemy 1 style)
+from sqlalchemy import select
+
+result = await db.execute(
+    select(EpisodicMemory)
+    .where(EpisodicMemory.session_id == session_id)
+    .where(EpisodicMemory.deleted_at.is_(None))
+    .order_by(EpisodicMemory.created_at.desc())
+    .limit(20)
+)
+entries = result.scalars().all()
+```
+
+---
+
+## Error Handling
+
+### Exceptions hierarchy
+
+```python
+# app/core/errors.py
+class TalonError(Exception): pass
+class AllProvidersDown(TalonError): pass
+class SkillExecutionError(TalonError): pass
+class MemoryCompilerError(TalonError): pass
+class SecurityError(TalonError): pass
+```
+
+Always raise typed exceptions. Never `raise Exception("something broke")`.
+
+### In route handlers
+
+```python
+# Good
+try:
+    result = await gateway.complete(messages)
+except AllProvidersDown:
+    raise HTTPException(status_code=503, detail={
+        "error": "service_unavailable",
+        "recoverable": True,
+        "message": "AI providers temporarily unavailable.",
+    })
+```
+
+### In skills
+
+```python
+# Good: return SkillResult, don't raise
+try:
+    ...
+    return SkillResult(tool_name=tool_name, success=True, data=data)
+except httpx.TimeoutException as e:
+    return SkillResult(tool_name=tool_name, success=False,
+                       data=None, error=f"Request timed out: {e}")
+```
+
+Skills must not raise — the executor handles all exceptions. Return `SkillResult`.
+
+---
+
+## Logging
+
+Always use structlog. Never use `print()` or `logging.getLogger()` directly.
+
+```python
+import structlog
+log = structlog.get_logger()
+
+# Correct
+log.info("skill_executed", skill=skill.name, tool=tool_name,
+         latency_ms=elapsed, success=result.success)
+
+# Wrong — no structured fields, secret exposed
+log.info(f"Executed {skill.name} with api_key={api_key}")
+```
+
+Field naming conventions:
+- Snake_case for all field names
+- `_ms` suffix for millisecond durations
+- `_count` suffix for counters
+- `_id` suffix for identifiers
+- `error` for error messages (string), `exc_info` for exceptions
+
+---
+
+## Async Patterns
+
+### HTTP clients — always use AsyncClient, always use context manager
+
+```python
+# Good
+async with httpx.AsyncClient(timeout=10.0) as client:
+    resp = await client.get(url, params=params)
+    resp.raise_for_status()
+    return resp.json()
+
+# Wrong — sync requests in async code blocks the event loop
+import requests
+resp = requests.get(url)
+```
+
+### Background tasks — always track them
+
+```python
+# Good — tracked, can be awaited or cancelled
+class AppState:
+    _tasks: set[asyncio.Task] = set()
+
+    def create_task(self, coro):
+        task = asyncio.create_task(coro)
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+        return task
+
+# Wrong — fire and forget, silently swallows errors
+asyncio.create_task(some_coro())
+```
+
+### Timeouts — always set them
+
+```python
+# Good
+result = await asyncio.wait_for(skill.execute(tool_name, params), timeout=30.0)
+
+# Wrong — hangs forever if skill hangs
+result = await skill.execute(tool_name, params)
+```
+
+---
+
+## Adding a New Skill (Checklist)
+
+1. Create `backend/skills/<name>/` directory
+2. Write `skill.toml` with `[skill]` and `[skill.permissions]` sections
+3. Implement `main.py` with a `BaseSkill` subclass
+4. Tool names must be lowercase snake_case: `get_weather`, `search_web`
+5. Descriptions must be imperative, precise, LLM-readable
+6. `execute()` returns `SkillResult` — never raises
+7. `health_check()` returns `bool` — fast, no I/O
+8. Write tests in `backend/tests/test_skills/test_builtin/test_{name}.py`
+9. Sentinel will hot-reload — no restart needed
+
+---
+
+## Alembic Migration Conventions
+
+```bash
+# Generate a new migration
+cd backend && alembic revision --autogenerate -m "add_episodic_memory_source_column"
+
+# Apply migrations
+alembic upgrade head
+
+# Roll back one step
+alembic downgrade -1
+```
+
+Rules:
+- Migration message must describe the change, not the table: `add_source_col_to_episodic` not `update_episodic`
+- Every `upgrade()` must have a working `downgrade()`
+- Never edit a migration that has been applied to production
+- After adding a model, always run `alembic check` before committing

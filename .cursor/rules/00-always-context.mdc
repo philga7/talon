@@ -1,0 +1,50 @@
+---
+description: Always-on project context. This rule is always active regardless of what file is open. It provides the minimal invariants every agent must know.
+alwaysApply: true
+---
+
+# Talon — Always-On Context
+
+**What it is:** Self-hosted personal AI gateway on a single Hostinger VPS.
+**Runtime:** Python 3.12 / FastAPI / PostgreSQL+pgvector / React+Vite.
+**Deployed as:** `talon.service` (systemd). Docker only for PostgreSQL + SearXNG.
+**One operator. One server. No horizontal scaling.**
+
+## Hardcoded Invariants
+
+1. Secrets live in `config/secrets/` (chmod 700). Files chmod 600.
+   Never in code, `.env`, or environment variables.
+
+2. No synchronous I/O in async handlers. Use httpx, asyncpg, aiofiles.
+
+3. All SQL via SQLAlchemy async ORM or parameterized queries. No interpolation.
+
+4. LLM providers in priority order (configured in config/providers.yaml).
+   Circuit breaker opens after 3 failures. All provider config in `config/providers.yaml`.
+
+5. Skills implement `BaseSkill`. `execute()` returns `SkillResult` — never raises.
+
+6. Tests mock the LLM gateway. Real provider calls use `@pytest.mark.llm_eval`.
+
+7. SSE is the streaming transport. No WebSockets.
+
+8. Frontend: TailwindCSS v4 + daisyUI v5. No raw CSS unless unavoidable.
+
+9. Full type coverage: Python strict pyright, TypeScript strict mode, no `any`.
+
+10. Every deploy runs `make test` first. A failing test suite does not ship.
+
+## Key File Locations
+
+```
+backend/app/llm/gateway.py           LLM gateway + circuit breaker
+backend/app/memory/engine.py         Memory engine (3-tier)
+backend/app/skills/base.py           BaseSkill contract
+backend/app/skills/registry.py       Dynamic skill loader
+backend/app/core/config.py           Pydantic BaseSettings
+backend/app/core/logging.py          structlog configuration
+config/providers.yaml                LLM provider definitions
+data/memories/                       Core memory Markdown sources
+deploy/systemd/talon.service         systemd unit file
+docker-compose.yml                   Auxiliary services only
+```
