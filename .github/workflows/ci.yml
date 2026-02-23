@@ -59,7 +59,7 @@ jobs:
       - name: Pyright type check
         working-directory: backend
         run: |
-          .venv/bin/pyright
+          .venv/bin/pyright app
 
       - name: Wait for PostgreSQL
         working-directory: backend
