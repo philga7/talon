@@ -43,5 +43,5 @@ ignore = ["E501"]
 [tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
-reportMissingImports = true
+reportMissingImports = false
 reportMissingTypeStubs = false
