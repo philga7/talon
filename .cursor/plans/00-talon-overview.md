@@ -3,8 +3,8 @@
 
 ## What It Is
 Talon is a self-hosted personal AI gateway running on a single Hostinger KVM 4 VPS
-(16 GB RAM, 4 vCPU, 100 GB NVMe, Ubuntu 22.04). It replaces OpenClaw — a Node.js/TypeScript
-system — with a production-quality Python/TypeScript stack built for one operator.
+(16 GB RAM, 4 vCPU, 100 GB NVMe, Ubuntu 22.04). Inspired by OpenClaw — a Node.js/TypeScript
+system. Production-quality Python/TypeScript stack built for one operator.
 
 ## Philosophy
 - **Correctness first.** A wrong answer delivered reliably is worse than a correct answer

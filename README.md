@@ -1,6 +1,6 @@
 # Talon
 
-Self-hosted personal AI gateway for a single operator. Replaces OpenClaw (Node.js/TypeScript) with a Python/TypeScript stack on a single Hostinger VPS.
+Self-hosted personal AI gateway for a single operator. Licensed under [AGPL v3](LICENSE). Inspired by OpenClaw (Node.js/TypeScript). Python/TypeScript stack on a single Hostinger VPS.
 
 **Status: Phase 1 complete.** Foundation is implemented: FastAPI skeleton, config, logging, PostgreSQL+Alembic, health endpoint, deploy configs.
 
@@ -29,3 +29,7 @@ make dev
 curl http://localhost:8000/api/health  # {"status":"healthy"}
 make test  # runs pytest
 ```
+
+---
+
+Copyright © 2026 Philip Clapper. All rights reserved. See [LICENSE](LICENSE) for terms of use.
