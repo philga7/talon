@@ -1,0 +1,18 @@
+---
+# LLM provider configuration for Talon.
+# Secrets (API keys) are NOT stored here; they must come from environment variables
+# or files under config/secrets/, referenced via api_key_env.
+
+providers:
+  - name: primary
+    model: "openai/gpt-4.1-mini"
+    api_key_env: "OPENAI_API_KEY"
+    timeout_seconds: 30
+    max_retries: 3
+
+  - name: fallback
+    model: "openai/gpt-4o-mini"
+    api_key_env: "OPENAI_API_KEY"
+    timeout_seconds: 30
+    max_retries: 3
+

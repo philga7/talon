@@ -186,3 +186,7 @@ cd frontend && npm run dev
 ```
 
 Health check: `curl http://localhost:8000/api/health | jq`
+
+Basic chat (Phase 2): `curl -X POST http://localhost:8000/api/chat -H 'Content-Type: application/json' -d '{"message":"hello","session_id":"test"}'`
+
+Basic SSE stream (Phase 2): `curl 'http://localhost:8000/api/sse/test-session?prompt=hello'`

@@ -2,13 +2,13 @@
 
 Self-hosted personal AI gateway for a single operator. Licensed under [AGPL v3](LICENSE). Inspired by OpenClaw (Node.js/TypeScript). Python/TypeScript stack on a single Hostinger VPS.
 
-**Status: Phase 1 complete.** Foundation is implemented: FastAPI skeleton, config, logging, PostgreSQL+Alembic, health endpoint, deploy configs.
+**Status: Phases 1–2 complete.** Foundation is implemented (FastAPI skeleton, config, logging, PostgreSQL+Alembic, health endpoint, deploy configs) and the basic LLM gateway is online (`/api/chat`, `/api/sse/{session_id}`, `config/providers.yaml`).
 
 - **Stack:** FastAPI, PostgreSQL+pgvector, React+Vite, SSE streaming, LiteLLM, APScheduler
 - **Docs:** See [AGENTS.md](AGENTS.md) for full spec and [`.cursor/plans/`](.cursor/plans/) for phased implementation roadmap (8 phases)
 - **CI:** GitHub Actions runs backend lint (ruff, pyright) + tests (`make test`) on pushes to `main` and `feature/**` and on all PRs.
 
-## Quick Start (Phase 1)
+## Quick Start (Backend Phases 1–2)
 
 ```bash
 # 1. Create virtualenv and install deps
@@ -26,9 +26,9 @@ make migrate
 # 4. Run backend
 make dev
 
-# 5. Verify
-curl http://localhost:8000/api/health  # {"status":"healthy"}
-make test  # runs pytest
+# 5. Verify (and reuse for later phases)
+curl http://localhost:8000/api/health  # status + provider circuit breaker info
+make test  # backend tests for all phases (gateway, memory, skills, ...)
 ```
 
 ## VPS Deploy (Phase 1)
