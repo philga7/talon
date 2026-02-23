@@ -1,6 +1,7 @@
 """Memory engine: orchestrates core matrix, episodic store, working memory, prompt assembly."""
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -10,8 +11,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.memory.compressor import MemoryCompressor
 from app.memory.episodic import EpisodicStore
 from app.memory.working import WorkingMemoryStore
+from app.models.episodic import EpisodicMemory
 
 log = structlog.get_logger()
+
+
+def _by_created_at(entry: EpisodicMemory) -> datetime:
+    """Sort key for episodic entries by created_at."""
+    return entry.created_at
 
 
 def format_matrix_for_prompt(core_matrix: dict[str, Any]) -> str:
@@ -117,7 +124,7 @@ class MemoryEngine:
         )
         if episodic:
             parts.append("## Relevant past context")
-            for entry in sorted(episodic, key=lambda e: e.created_at):
+            for entry in sorted(episodic, key=_by_created_at):
                 parts.append(f"[{entry.role}]: {entry.content}")
         working = await self._working.get_all(session_id)
         if working:
