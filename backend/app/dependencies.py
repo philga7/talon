@@ -1,7 +1,6 @@
 """FastAPI dependency injection."""
 
 from collections.abc import AsyncGenerator
-from typing import cast
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -55,7 +54,7 @@ def get_gateway() -> LLMGateway:
     if _gateway is None:
         msg = "LLM gateway not initialized; call init_gateway at startup"
         raise RuntimeError(msg)
-    return cast(LLMGateway, _gateway)
+    return _gateway
 
 
 async def get_memory() -> None:

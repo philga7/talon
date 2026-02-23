@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import litellm
-import yaml
+import yaml  # type: ignore[reportMissingModuleSource]
 from structlog import get_logger
 
 from app.core.config import TalonSettings
