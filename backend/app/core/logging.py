@@ -1,0 +1,46 @@
+"""structlog configuration and SecretMasker processor."""
+
+from pathlib import Path
+
+import structlog
+
+
+class SecretMasker:
+    """Processor that redacts secret-like keys from log event dicts."""
+
+    PATTERNS = ("api_key", "token", "password", "secret", "authorization")
+
+    def __call__(self, logger: object, method: str, event_dict: dict) -> dict:
+        for key in list(event_dict.keys()):
+            if any(p in key.lower() for p in self.PATTERNS):
+                event_dict[key] = "***REDACTED***"
+        return event_dict
+
+
+def configure_logging(
+    log_level: str = "INFO",
+    log_file: Path | str | None = None,
+) -> None:
+    """Configure structlog with JSON output and SecretMasker."""
+    log_path = Path(log_file) if log_file else None
+    if log_path:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        file_handle = open(log_path, "a", buffering=1)  # noqa: SIM115
+        logger_factory = structlog.WriteLoggerFactory(file=file_handle)
+    else:
+        logger_factory = structlog.PrintLoggerFactory()
+
+    structlog.configure(
+        processors=[
+            structlog.contextvars.merge_contextvars,
+            structlog.stdlib.filter_by_level,
+            structlog.processors.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            SecretMasker(),
+            structlog.processors.JSONRenderer(),
+        ],
+        logger_factory=logger_factory,
+        cache_logger_on_first_use=True,
+    )

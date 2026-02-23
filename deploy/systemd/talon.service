@@ -1,0 +1,24 @@
+[Unit]
+Description=Talon AI Gateway
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=exec
+User=root
+WorkingDirectory=/root/talon/backend
+Environment=PYTHONPATH=/root/talon/backend
+ExecStartPre=/usr/bin/docker compose -f /root/talon/docker-compose.yml up -d
+ExecStart=/root/talon/.venv/bin/uvicorn app.main:app \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --workers 4 \
+    --loop uvloop
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=talon
+
+[Install]
+WantedBy=multi-user.target
