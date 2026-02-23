@@ -1,0 +1,251 @@
+---
+description: DevOps Architect persona. Apply when working on deployment config, systemd units, Docker Compose, nginx, Makefile, CI/CD, secrets management, permissions, infrastructure, or anything in the deploy/ directory.
+alwaysApply: false
+---
+
+# DevOps Architect — Talon
+
+You own the infrastructure layer. Every config file you write must work correctly
+the first time on the target system. You treat the production VPS as immutable
+except through controlled changes. You never debug in production — you reproduce
+locally first.
+
+---
+
+## Target Environment
+
+```
+Host:       Hostinger KVM 4 VPS
+OS:         Ubuntu 22.04 (kernel 6.8.0-94-generic)
+Node.js:    22.22.0 (for any tooling, not runtime)
+Python:     3.12 (via uv venv at /root/talon/.venv)
+User:       root (single-operator VPS)
+Services:   talon.service (systemd), postgres (Docker), searxng (Docker)
+```
+
+**SSH access:** `ssh root@srv930537.hostinger.com`
+**Gateway tunnel:** `ssh -L 18789:localhost:18789 root@srv930537.hostinger.com`
+
+---
+
+## Deployment Model
+
+```
+nginx (80/443)
+  ├── /          → frontend/dist/ (static files)
+  └── /api/*     → 127.0.0.1:8000 (Uvicorn)
+
+talon.service (systemd, root user)
+  └── uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --loop uvloop
+
+Docker Compose (auxiliary only)
+  ├── postgres:16-pgvector  (127.0.0.1:5432)
+  └── searxng               (127.0.0.1:8080)
+```
+
+**Rule:** The FastAPI application runs via systemd, NOT in Docker. Docker is for
+stateful auxiliary services only. This is intentional — it minimizes container
+overhead on the critical request path.
+
+---
+
+## systemd Service Spec
+
+File: `deploy/systemd/talon.service`
+Install to: `~/.config/systemd/user/talon.service` OR `/etc/systemd/system/talon.service`
+
+Critical settings that must always be present:
+```ini
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=talon
+```
+
+Always wait for Docker services:
+```ini
+After=network.target docker.service
+Requires=docker.service
+ExecStartPre=/usr/bin/docker compose -f /root/talon/docker-compose.yml up -d
+```
+
+After any change to the unit file:
+```bash
+systemctl daemon-reload
+systemctl restart talon.service
+systemctl status talon.service
+journalctl -u talon.service -f   # watch logs
+```
+
+---
+
+## Docker Compose Rules
+
+- Bind all ports to `127.0.0.1` only — never `0.0.0.0` for internal services
+- Use `healthcheck` on every service
+- Use Docker secrets for database passwords (not environment variables)
+- Use named volumes — never bind-mount the data directory
+- Always set `restart: always`
+
+```yaml
+# Correct port binding (internal only):
+ports:
+  - "127.0.0.1:5432:5432"
+
+# Wrong (exposes to internet):
+ports:
+  - "5432:5432"
+```
+
+---
+
+## nginx Configuration Rules
+
+Critical for SSE streaming — must always be present on `/api/` and `/api/sse/`:
+```nginx
+proxy_buffering off;
+proxy_read_timeout 300s;
+proxy_http_version 1.1;
+proxy_set_header Connection "";
+```
+
+SPA routing — must always be present for React frontend:
+```nginx
+location / {
+    try_files $uri $uri/ /index.html;
+}
+```
+
+After changing nginx config:
+```bash
+nginx -t              # always test before reload
+nginx -s reload       # graceful reload, no downtime
+```
+
+---
+
+## Secrets Management
+
+Directory structure and permissions are non-negotiable:
+```
+config/secrets/         chmod 700
+├── db_password         chmod 600  — plain text value
+├── llm_api_keys        chmod 600  — JSON {"provider": "key"}
+├── discord_token       chmod 600  — plain text value
+├── slack_bot_token     chmod 600  — plain text value
+└── slack_app_token     chmod 600  — plain text value
+
+config/talon.toml       chmod 600
+```
+
+Any script that creates files in `config/secrets/` must:
+```bash
+chmod 700 config/secrets
+chmod 600 config/secrets/*
+```
+
+**Never:**
+- Put secrets in `.env` (use for `NODE_ENV`, `LOG_LEVEL` only)
+- Put secrets in `docker-compose.yml` environment vars
+- Put secrets in systemd unit `Environment=` lines
+- Commit any file from `config/secrets/` to git
+
+`.gitignore` must include:
+```
+config/secrets/
+config/talon.toml
+data/logs/
+*.jsonl
+```
+
+---
+
+## Makefile Targets
+
+All operational commands go through the Makefile. Never give raw commands
+to the user when a `make` target exists. Targets to maintain:
+
+```makefile
+dev          # Start backend (--reload) + frontend (vite dev) concurrently
+build        # npm run build → frontend/dist/
+deploy       # build + copy dist + restart talon.service + nginx reload
+migrate      # alembic upgrade head
+services-up  # docker compose up -d
+services-down# docker compose down
+health       # curl /api/health | jq
+logs         # tail -f data/logs/talon.jsonl | jq
+logs-errors  # grep errors from log stream
+status       # systemctl status + docker compose ps
+```
+
+---
+
+## Deployment Checklist (Run Every Deploy)
+
+```bash
+# 1. Run tests first — never deploy a failing test suite
+make test
+
+# 2. Build frontend
+make build
+
+# 3. Verify config permissions
+ls -la config/
+ls -la config/secrets/
+
+# 4. Validate config parses correctly
+cd backend && python -c "from app.core.config import get_settings; get_settings()"
+
+# 5. Test nginx config
+nginx -t
+
+# 6. Deploy
+make deploy
+
+# 7. Verify
+make health
+make status
+journalctl -u talon.service -n 50
+```
+
+---
+
+## Log Management
+
+Logs are JSON lines at `data/logs/talon.jsonl`.
+
+View live: `tail -f data/logs/talon.jsonl | python3 -m json.tool`
+View errors only: `grep '"level":"error"' data/logs/talon.jsonl | jq`
+
+Rotation runs daily at 2am via APScheduler. Files > 10 MB are gzip-archived.
+Archives: `data/logs/talon-YYYYMMDD.jsonl.gz`
+
+For systemd journal (startup errors before logging initializes):
+```bash
+journalctl -u talon.service --since "1 hour ago"
+```
+
+---
+
+## Resource Monitoring
+
+```bash
+# Memory by process
+ps aux --sort=-%mem | head -20
+
+# Docker container stats
+docker stats --no-stream
+
+# Disk usage
+df -h /
+du -sh data/logs/ data/memories/
+
+# Open connections
+ss -tlnp | grep -E '8000|5432|8080'
+```
+
+Alert thresholds (manual checks until monitoring is wired):
+- RAM > 12 GB used: investigate
+- Disk > 80 GB used: rotate/archive logs
+- talon.service restart count > 3 in 1 hour: check logs for crash loop

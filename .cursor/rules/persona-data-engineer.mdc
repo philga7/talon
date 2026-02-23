@@ -1,0 +1,231 @@
+---
+description: Data Engineer persona. Apply when working with the memory engine, database migrations, episodic memory, pgvector embeddings, the memory compressor, or any data pipeline that moves information between tiers.
+globs: ["backend/app/memory/**/*.py", "backend/alembic/**/*.py", "data/**/*.md"]
+alwaysApply: false
+---
+
+# Data Engineer — Talon
+
+You own the data layer. You think in terms of data flow, schema contracts, and
+query performance. You know that the memory system is the agent's most valuable
+asset — a corruption or silent truncation is worse than an outright failure.
+
+---
+
+## Three-Tier Memory Architecture
+
+```
+Tier 1 — Core Matrix (always in every prompt)
+  Source:  data/memories/*.md  (Markdown files, human-editable)
+  Compiled: data/core_matrix.json  (JSON matrix, auto-generated)
+  Budget:  2,000 tokens max (enforced by compressor)
+  Refresh: at startup + on Sentinel file change event
+
+Tier 2 — Episodic Store (retrieved per session)
+  Storage: PostgreSQL table `episodic_memory` with pgvector `embedding` column
+  Indexing: HNSW index on embedding column (cosine distance)
+  Retrieval: top-k=5 entries by cosine similarity to current message
+  Compaction: entries older than 30 days archived/summarized by scheduler job
+
+Tier 3 — Working Memory (in-process, per-session)
+  Storage: Python dict in `WorkingMemoryStore`, keyed by session_id
+  Scope:   single session lifetime
+  GC:      idle sessions garbage-collected after 30 minutes
+  Limit:   1,000 tokens per session (soft cap, not hard enforced)
+```
+
+---
+
+## Core Matrix Format
+
+The compressor converts Markdown to a JSON matrix schema:
+
+### Markdown source (human-editable)
+```markdown
+# identity
+- name: Talon
+- purpose: personal AI gateway for a single operator
+- owner: [your name]
+- personality: direct, concise, technically precise
+
+# capabilities
+- search the web via SearXNG
+- query stock prices and market data
+- send and receive email
+- monitor weather
+```
+
+### Compiled matrix output
+```json
+{
+  "schema": ["category", "key", "value", "priority"],
+  "rows": [
+    ["identity", "name", "Talon", 1],
+    ["identity", "purpose", "personal AI gateway for a single operator", 1],
+    ["capabilities", "search", "web via SearXNG", 2],
+    ["capabilities", "email", "send and receive email", 2]
+  ],
+  "compiled_at": "2026-02-22T06:00:00Z",
+  "token_count": 847
+}
+```
+
+### Compressor rules
+- Priority 1 = always include (identity, core behavior)
+- Priority 2 = include if budget allows (capabilities, preferences)
+- Priority 3 = include only if budget is very generous (history, trivia)
+- Duplicate suppression: keys within the same category must be unique
+- The compressor truncates from the lowest priority first when over budget
+
+---
+
+## Database Schema
+
+### episodic_memory table
+```sql
+CREATE TABLE episodic_memory (
+    id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id  VARCHAR(128) NOT NULL,
+    role        VARCHAR(32)  NOT NULL,  -- 'user', 'assistant', 'memory_import'
+    content     TEXT         NOT NULL,
+    embedding   VECTOR(1536),           -- pgvector, nullable (set async)
+    source      VARCHAR(64)  DEFAULT 'chat',
+    created_at  TIMESTAMPTZ  DEFAULT NOW(),
+    archived_at TIMESTAMPTZ,            -- NULL = active
+    deleted_at  TIMESTAMPTZ             -- NULL = not deleted
+);
+
+-- HNSW index for approximate nearest-neighbor search
+CREATE INDEX episodic_embedding_idx
+  ON episodic_memory USING hnsw (embedding vector_cosine_ops)
+  WITH (m = 16, ef_construction = 64);
+
+-- Retrieval index
+CREATE INDEX episodic_session_idx
+  ON episodic_memory (session_id, created_at DESC)
+  WHERE deleted_at IS NULL AND archived_at IS NULL;
+```
+
+### Embedding pipeline
+Embeddings are generated asynchronously — the chat response does not wait for them:
+
+```python
+async def save_turn(self, session_id: str, user_msg: str, assistant_msg: str):
+    # 1. Insert entry with embedding = NULL (fast path)
+    entry = EpisodicMemory(session_id=session_id, role="user", content=user_msg)
+    db.add(entry)
+    await db.commit()
+
+    # 2. Generate embedding in background (does not block response)
+    asyncio.create_task(self._embed_and_update(entry.id, user_msg))
+```
+
+### Retrieval query
+```python
+async def retrieve_relevant(
+    self, session_id: str, query: str, k: int = 5
+) -> list[EpisodicMemory]:
+    query_embedding = await self.embed(query)
+    result = await db.execute(
+        select(EpisodicMemory)
+        .where(EpisodicMemory.deleted_at.is_(None))
+        .where(EpisodicMemory.archived_at.is_(None))
+        .where(EpisodicMemory.embedding.isnot(None))
+        .order_by(
+            EpisodicMemory.embedding.cosine_distance(query_embedding)
+        )
+        .limit(k)
+    )
+    return result.scalars().all()
+```
+
+---
+
+## Prompt Assembly
+
+The memory engine builds the system prompt in this exact order:
+
+```python
+def build_system_prompt(
+    core_matrix: dict,
+    episodic: list[EpisodicMemory],
+    working: dict[str, str],
+) -> str:
+    parts = []
+
+    # 1. Core matrix — always included, token-budget enforced by compressor
+    parts.append(format_matrix_for_prompt(core_matrix))
+
+    # 2. Episodic — top-k retrieved entries, oldest first for narrative coherence
+    if episodic:
+        parts.append("## Relevant past context")
+        for entry in sorted(episodic, key=lambda e: e.created_at):
+            parts.append(f"[{entry.role}]: {entry.content}")
+
+    # 3. Working memory — current session state
+    if working:
+        parts.append("## Current session context")
+        for key, value in working.items():
+            parts.append(f"{key}: {value}")
+
+    return "\n\n".join(parts)
+```
+
+---
+
+## Archival Job (runs daily at 3am)
+
+Entries older than 30 days are summarized into a compact archive entry,
+then the originals are soft-deleted. This keeps the episodic store queryable
+without unbounded growth.
+
+```python
+async def archive_old_entries(db: AsyncSession, days: int = 30):
+    cutoff = datetime.now(UTC) - timedelta(days=days)
+
+    # Fetch old entries grouped by session
+    old = await db.execute(
+        select(EpisodicMemory)
+        .where(EpisodicMemory.created_at < cutoff)
+        .where(EpisodicMemory.archived_at.is_(None))
+        .where(EpisodicMemory.deleted_at.is_(None))
+        .order_by(EpisodicMemory.session_id, EpisodicMemory.created_at)
+    )
+    entries = old.scalars().all()
+    if not entries:
+        return
+
+    # Summarize with LLM, store as single archive entry
+    summary = await summarize_entries(entries)  # LLM call
+    archive = EpisodicMemory(
+        session_id="archive",
+        role="archive_summary",
+        content=summary,
+        source="archival_job",
+    )
+    db.add(archive)
+
+    # Soft-delete originals
+    for entry in entries:
+        entry.archived_at = datetime.now(UTC)
+
+    await db.commit()
+    log.info("episodic_archived", count=len(entries))
+```
+
+---
+
+## Memory Source File Conventions
+
+Files in `data/memories/`:
+- `identity.md` — who the agent is, core personality, owner
+- `user_preferences.md` — operator preferences, communication style
+- `long_term.md` — curated long-term facts, important decisions, key relationships
+- `capabilities.md` — what skills are available and when to use each
+- `instructions.md` — behavioral rules, things to always or never do
+
+Adding a new memory file:
+1. Create the `.md` file with `# category` headings and `- key: value` entries
+2. Assign priorities with `<!-- priority:1 -->` comments (default: 2)
+3. Sentinel will detect the new file and trigger recompilation automatically
+4. Check token count: `make health | jq .memory`
