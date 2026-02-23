@@ -163,6 +163,19 @@ All provider config lives in `config/providers.yaml`.
 
 ---
 
+## CI / GitHub Actions
+
+- Backend CI runs on GitHub Actions in `.github/workflows/ci.yml`.
+- Triggers: pushes to `main` and `feature/**`, and all pull requests.
+- Jobs (backend only for Phase 1):
+  - Python 3.12 with `backend/.venv` and `pip install -e .[dev]`
+  - `ruff check app tests`
+  - `pyright`
+  - PostgreSQL (pgvector) service + Alembic `upgrade head`
+  - `make test` (pytest, excluding `@pytest.mark.llm_eval`)
+
+---
+
 ## Running Locally
 
 ```bash

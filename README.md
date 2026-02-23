@@ -6,6 +6,7 @@ Self-hosted personal AI gateway for a single operator. Licensed under [AGPL v3](
 
 - **Stack:** FastAPI, PostgreSQL+pgvector, React+Vite, SSE streaming, LiteLLM, APScheduler
 - **Docs:** See [AGENTS.md](AGENTS.md) for full spec and [`.cursor/plans/`](.cursor/plans/) for phased implementation roadmap (8 phases)
+- **CI:** GitHub Actions runs backend lint (ruff, pyright) + tests (`make test`) on pushes to `main` and `feature/**` and on all PRs.
 
 ## Quick Start (Phase 1)
 
