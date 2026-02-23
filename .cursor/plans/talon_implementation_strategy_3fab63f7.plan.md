@@ -1,6 +1,6 @@
 ---
 name: Talon Implementation Strategy
-overview: An 8-phase incremental build strategy for the Talon AI gateway, ordered by dependency graph. Each phase produces a deployable, testable artifact on the VPS. The approach is "progressive vertical" -- each phase fully completes a subsystem slice (with tests) before moving on, but the system is runnable from Phase 1 onward.
+overview: A 9-phase incremental build strategy for the Talon AI gateway, ordered by dependency graph. Each phase produces a deployable, testable artifact on the VPS. The approach is "progressive vertical" -- each phase fully completes a subsystem slice (with tests) before moving on, but the system is runnable from Phase 1 onward.
 todos:
   - id: phase-1
     content: "Phase 1: Foundation -- FastAPI skeleton, config, logging, PostgreSQL, Alembic, middleware, error hierarchy, health endpoint, test harness, deploy configs, Makefile"
@@ -24,7 +24,10 @@ todos:
     content: "Phase 7: Integrations + Remaining Skills -- Discord, Slack, webhook receiver, weather/email/news skills ported"
     status: pending
   - id: phase-8
-    content: "Phase 8: Hardening + Migration -- Migration scripts, Playwright E2E, chaos tests, security audit, frontend polish, SSL, OpenClaw decommission"
+    content: "Phase 8: CLI + Onboarding -- typer CLI, talon onboard wizard, talon doctor, talon config, talon status, WizardPrompter, first-time setup flow"
+    status: pending
+  - id: phase-9
+    content: "Phase 9: Hardening + Migration -- Migration scripts, Playwright E2E, chaos tests, security audit, frontend polish, SSL, OpenClaw decommission"
     status: pending
 isProject: false
 ---
@@ -46,7 +49,8 @@ graph LR
     P4 --> P6[Phase 6: Scheduler + Sentinel]
     P5 --> P7[Phase 7: Integrations]
     P6 --> P7
-    P7 --> P8[Phase 8: Hardening]
+    P7 --> P8[Phase 8: CLI + Onboarding]
+    P8 --> P9[Phase 9: Hardening]
 ```
 
 
@@ -260,7 +264,36 @@ curl http://localhost:8000/api/scheduler/jobs | jq  # shows all registered jobs
 
 ---
 
-## Phase 8: Hardening + Migration
+## Phase 8: CLI + Onboarding
+
+**Goal:** A `talon` CLI that guides operators through first-time setup, validates system health, and provides ongoing management commands (modeled after OpenClaw's onboarding wizard, adapted for Talon's Python/systemd architecture).
+
+**Delivers:**
+
+- Typer CLI with Rich for formatted output (`[backend/app/cli/main.py](backend/app/cli/main.py)`)
+- `talon onboard` — interactive wizard: QuickStart/Advanced flow, secrets setup, provider config, DB + migrations, memory bootstrap, optional integrations, systemd install, frontend build, health verification
+- `talon doctor` — diagnostic validator: config/secrets permissions, DB connectivity, LLM reachability, Docker services, systemd status, disk space, log writability, nginx config test
+- `talon config` — config viewer (show / get / validate), read-only
+- `talon status` — unified status (health endpoint + Docker + systemd + disk)
+- `WizardPrompter` protocol (intro, outro, note, select, text, confirm, progress) for testable wizard flows
+- Entry point in `pyproject.toml`: `talon = "app.cli.main:app"`
+- Tests: mocked prompter for onboard flow; independent doctor checks; no real LLM in onboard tests
+
+**Verification on VPS:**
+
+```
+pip install -e .
+talon onboard    # full guided setup
+talon doctor     # all checks pass
+talon status     # healthy system
+talon config show
+```
+
+**Personas involved:** Backend Engineer, DevOps, QA
+
+---
+
+## Phase 9: Hardening + Migration
 
 **Goal:** Production-grade reliability. OpenClaw data migrated. Security audited. System is the daily driver.
 
@@ -299,7 +332,8 @@ make health  # all green
 - **Phase 5** depends on Phase 4 (needs API endpoints to exist)
 - **Phase 6** depends on Phases 3 + 4 (needs memory + skills to schedule/watch)
 - **Phase 7** depends on Phases 4 + 6 (needs ChatRouter + hot-reload)
-- **Phase 8** depends on all prior phases
+- **Phase 8** depends on Phases 1–7 (all subsystems exist to be configured by onboard/doctor)
+- **Phase 9** depends on all prior phases
 
 Phases 2 and 3 can theoretically be built in parallel since they depend only on Phase 1. However, serial execution is simpler for a single developer and avoids merge conflicts in shared files like `dependencies.py` and `main.py`.
 
@@ -314,5 +348,6 @@ Phases 2 and 3 can theoretically be built in parallel since they depend only on 
 - Phase 5 (Frontend): **Medium-Large** -- full React app from scratch
 - Phase 6 (Scheduler + Sentinel): **Small-Medium** -- clear scope, few unknowns
 - Phase 7 (Integrations): **Medium** -- Discord/Slack SDKs, skill porting
-- Phase 8 (Hardening): **Medium** -- testing, migration scripts, polish
+- Phase 8 (CLI + Onboarding): **Medium** -- typer/Rich glue over existing subsystems, wizard logic
+- Phase 9 (Hardening): **Medium** -- testing, migration scripts, polish
 
