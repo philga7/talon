@@ -9,8 +9,8 @@ on this codebase. Read it fully before writing any code.
 ## What This Project Is
 
 **Talon** is a self-hosted personal AI gateway running on a single Hostinger
-KVM 4 VPS (16 GB RAM, 4 vCPU, 100 GB NVMe, Ubuntu 22.04). It replaces OpenClaw
-(a Node.js/TypeScript system) with a production-quality Python/TypeScript stack
+KVM 4 VPS (16 GB RAM, 4 vCPU, 100 GB NVMe, Ubuntu 22.04). Inspired by OpenClaw
+(a Node.js/TypeScript system). Production-quality Python/TypeScript stack
 purpose-built for one operator.
 
 Core responsibilities:
@@ -160,6 +160,19 @@ All provider config lives in `config/providers.yaml`.
 - PostgreSQL is accessed **only** via SQLAlchemy async sessions.
 - The frontend is a **pure static build** served by nginx.
 - All chat, regardless of platform, routes through `ChatRouter`.
+
+---
+
+## CI / GitHub Actions
+
+- Backend CI runs on GitHub Actions in `.github/workflows/ci.yml`.
+- Triggers: pushes to `main` and `feature/**`, and all pull requests.
+- Jobs (backend only for Phase 1):
+  - Python 3.12 with `backend/.venv` and `pip install -e .[dev]`
+  - `ruff check app tests`
+  - `pyright`
+  - PostgreSQL (pgvector) service + Alembic `upgrade head`
+  - `make test` (pytest, excluding `@pytest.mark.llm_eval`)
 
 ---
 
