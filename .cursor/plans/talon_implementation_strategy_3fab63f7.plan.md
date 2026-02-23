@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: phase-2
     content: "Phase 2: LLM Gateway -- CircuitBreaker, retry, LLMGateway with fallback chain, LiteLLM integration, providers.yaml, basic SSE endpoint, gateway tests"
-    status: pending
+    status: completed
   - id: phase-3
     content: "Phase 3: Memory Engine -- Compressor, memory source files, EpisodicMemory model + pgvector, episodic store, working memory, MemoryEngine orchestrator, prompt assembly"
     status: pending

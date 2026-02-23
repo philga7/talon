@@ -5,22 +5,25 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.chat import router as chat_router
 from app.api.health import router as health_router
-from app.core.config import get_settings, init_settings
+from app.api.sse import router as sse_router
+from app.core.config import TalonSettings, get_settings, init_settings
 from app.core.logging import configure_logging
 from app.core.middleware import CorrelationIDMiddleware, RateLimitMiddleware
-from app.dependencies import init_db
+from app.dependencies import init_db, init_gateway
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown hooks."""
-    settings = get_settings()
+    settings: TalonSettings = get_settings()
     configure_logging(
         log_level=settings.log_level,
         log_file=settings.log_file_path,
     )
     init_db(settings)
+    init_gateway(settings)
     yield
     # Shutdown: close DB connections, etc.
     # SQLAlchemy engine cleanup happens when app is destroyed
@@ -52,6 +55,8 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health_router)
+    app.include_router(chat_router)
+    app.include_router(sse_router)
 
     return app
 

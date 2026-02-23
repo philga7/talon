@@ -11,6 +11,8 @@ async def test_health_returns_healthy(client: AsyncClient) -> None:
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
+    assert "providers" in data
+    assert isinstance(data["providers"], list)
 
 
 @pytest.mark.asyncio

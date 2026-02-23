@@ -4,9 +4,15 @@ from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.core.config import TalonSettings
+from app.llm.gateway import LLMGateway, create_gateway
+
 # Engine and session factory — initialized at startup
 _engine = None
 _async_session_factory: async_sessionmaker[AsyncSession] | None = None
+
+# LLM gateway — initialized at startup
+_gateway: LLMGateway | None = None
 
 
 def init_db(settings: object) -> None:
@@ -20,6 +26,12 @@ def init_db(settings: object) -> None:
         expire_on_commit=False,
         autoflush=False,
     )
+
+
+def init_gateway(settings: TalonSettings) -> None:
+    """Initialize the global LLM gateway from configuration."""
+    global _gateway
+    _gateway = create_gateway(settings)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -37,10 +49,12 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
-# Stubs for Phase 2+ — not yet implemented
-async def get_gateway() -> None:
-    """LLM gateway (Phase 2). Stub returns None."""
-    return None
+def get_gateway() -> LLMGateway:
+    """LLM gateway dependency."""
+    if _gateway is None:
+        msg = "LLM gateway not initialized; call init_gateway at startup"
+        raise RuntimeError(msg)
+    return _gateway
 
 
 async def get_memory() -> None:

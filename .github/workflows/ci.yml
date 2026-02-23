@@ -1,11 +1,9 @@
 name: CI
 
 on:
-  push:
+  pull_request:
     branches:
       - main
-      - "feature/**"
-  pull_request:
 
 jobs:
   backend:
@@ -57,9 +55,9 @@ jobs:
         run: |
           if [ ! -d ".venv" ]; then
             python -m venv .venv
-            .venv/bin/pip install --upgrade pip
-            .venv/bin/pip install -e .[dev]
           fi
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -e .[dev]
 
       - name: Ruff lint
         working-directory: backend
