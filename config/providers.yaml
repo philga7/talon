@@ -5,8 +5,8 @@
 
 providers:
   - name: primary
-    model: "openai/gpt-4.1-mini"
-    api_key_env: "OPENAI_API_KEY"
+    model: "ollama/glm-4.7:cloud"
+    api_key_env: "OLLAMA_API_KEY"
     timeout_seconds: 30
     max_retries: 3
 
