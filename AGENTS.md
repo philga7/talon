@@ -165,14 +165,20 @@ All provider config lives in `config/providers.yaml`.
 
 ## CI / GitHub Actions
 
-- Backend CI runs on GitHub Actions in `.github/workflows/ci.yml`.
-- Triggers: pushes to `main` and `feature/**`, and all pull requests.
-- Jobs (backend only for Phase 1):
+- CI runs on GitHub Actions in `.github/workflows/ci.yml`.
+- Triggers: all pull requests to `main`.
+- Backend job:
   - Python 3.12 with `backend/.venv` and `pip install -e .[dev]`
   - `ruff check app tests`
   - `pyright`
   - PostgreSQL (pgvector) service + Alembic `upgrade head`
   - `make test` (pytest, excluding `@pytest.mark.llm_eval`)
+- Frontend job:
+  - Node.js 22 with `npm ci`
+  - ESLint (`npm run lint`)
+  - TypeScript type check (`tsc -b`)
+  - Vitest (`npm test`)
+  - Production build (`npm run build`)
 
 ---
 
@@ -180,15 +186,13 @@ All provider config lives in `config/providers.yaml`.
 
 ```bash
 docker compose up -d
-cd backend && uvicorn app.main:app --reload --port 8088
-cd frontend && npm run dev
-# or: make dev
+make dev   # starts backend (port 8088) + frontend (port 5173) concurrently
 ```
 
-Health check: `curl http://localhost:8088/api/health | jq`
-
-Chat with tool-calling loop (Phase 4): `curl -X POST http://localhost:8088/api/chat -H 'Content-Type: application/json' -d '{"message":"What is AAPL stock price?","session_id":"test"}'`
-
-SSE stream (token, tool_start, tool_result, done): `curl 'http://localhost:8088/api/sse/test-session?prompt=hello'`
-
-Skills registry: `curl http://localhost:8088/api/skills | jq`
+- Frontend: `http://localhost:5173` (Vite dev proxy forwards `/api/*` to backend)
+- Health check: `curl http://localhost:8088/api/health | jq`
+- Chat: `curl -X POST http://localhost:8088/api/chat -H 'Content-Type: application/json' -d '{"message":"What is AAPL stock price?","session_id":"test"}'`
+- SSE stream: `curl 'http://localhost:8088/api/sse/test-session?prompt=hello'`
+- Skills: `curl http://localhost:8088/api/skills | jq`
+- Backend tests: `make test`
+- Frontend tests: `make test-frontend`

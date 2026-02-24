@@ -31,6 +31,10 @@ data/logs/
 *.swp
 *.swo
 
+# Node / Frontend
+node_modules/
+frontend/dist/
+
 # Test
 .pytest_cache/
 .coverage
