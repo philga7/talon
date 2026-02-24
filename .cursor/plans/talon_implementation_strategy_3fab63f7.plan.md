@@ -295,7 +295,7 @@ talon config show
 
 ## Phase 9: Hardening + Migration
 
-**Goal:** Production-grade reliability. OpenClaw data migrated. Security audited. System is the daily driver.
+**Goal:** Production-grade reliability. OpenClaw data migrated. Security hardened per [IronClaw security principles](.cursor/plans/talon_ironclaw_security_principles.md) ([integration plan](.cursor/plans/security_spec_integration_91bbf15c.plan.md)). System is the daily driver.
 
 **Delivers:**
 
@@ -304,6 +304,13 @@ talon config show
 - Playwright E2E test suite: chat flow, SSE reconnect, error states, health dashboard
 - LLM quality evaluation suite (`@pytest.mark.llm_eval`)
 - Chaos tests: all-providers-down, DB connection loss, skill timeout storms
+- Security hardening (`backend/app/security/` package, per IronClaw spec):
+  - **Outbound Leak Scanner** (`leak_scanner.py`) -- pre-dispatch scan of all skill HTTP traffic against vault secret digests and generic API key patterns; blocks or warns on match
+  - **SSRF Guard** (`ssrf_guard.py`) -- global egress filter blocking RFC-1918, loopback, link-local, and Docker bridge ranges before any outbound request
+  - **Per-Skill Endpoint Allowlist** (`skill_http_client.py`) -- `SkillHTTPClient` enforcing `allowed_hosts` declared in skill manifests; skills no longer self-construct `httpx.AsyncClient`
+  - **Prompt Injection Pipeline** (`prompt_guard.py`) -- tiered severity engine (Block/Warn/Review/Sanitize) applied to inbound user messages, tool response bodies, and memory retrieval results
+  - **AES-256-GCM Credential Vault** (`backend/app/core/vault.py`) -- secrets encrypted at rest with Argon2id-derived key; opaque references in tool context, resolved at HTTP dispatch boundary only
+  - **Tool-Call Audit Log** (`audit_log.py`) -- chained-hash structured entries to `data/logs/audit/`; inputs masked, outputs hashed, never purged on session reset
 - Security audit: permissions verification, CORS enforcement, rate limit testing, secret masking validation
 - Frontend polish: memory viewer panel, log viewer panel, virtual scrolling for long conversations
 - `README.md` fully written with setup instructions
@@ -314,6 +321,7 @@ talon config show
 
 ```
 make test && make test-e2e && make test-chaos
+make test-security  # leak scanner, SSRF guard, prompt guard, audit log
 make deploy
 make health  # all green
 # OpenClaw service stopped and disabled
@@ -349,5 +357,5 @@ Phases 2 and 3 can theoretically be built in parallel since they depend only on 
 - Phase 6 (Scheduler + Sentinel): **Small-Medium** -- clear scope, few unknowns
 - Phase 7 (Integrations): **Medium** -- Discord/Slack SDKs, skill porting
 - Phase 8 (CLI + Onboarding): **Medium** -- typer/Rich glue over existing subsystems, wizard logic
-- Phase 9 (Hardening): **Medium** -- testing, migration scripts, polish
+- Phase 9 (Hardening): **Medium-Large** -- testing, migration scripts, polish, plus 6 IronClaw security subsystems (`backend/app/security/` package)
 
