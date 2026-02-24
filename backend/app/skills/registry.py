@@ -123,9 +123,6 @@ class SkillRegistry:
                         },
                     }
                 )
-        log.info(
-            "registry_scan_complete", skills_dir=str(self._skills_dir), count=len(self._skills)
-        )
         return len(self._skills)
 
     async def load_all(self) -> int:
