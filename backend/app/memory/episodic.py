@@ -45,11 +45,6 @@ class EpisodicStore:
             )
             db.add(entry)
         await db.flush()
-        log.info(
-            "episodic_turn_saved",
-            session_id=session_id,
-            source=source,
-        )
         # Background embedding can be added here when embed_fn is set (e.g. Phase 4)
 
     async def retrieve_relevant(
