@@ -34,11 +34,12 @@ async def db_session(
 async def test_save_turn_inserts_two_entries(db_session: AsyncSession) -> None:
     """save_turn inserts user and assistant rows."""
     store = EpisodicStore()
-    await store.save_turn(db_session, "test-session", "user msg", "assistant msg", source="chat")
+    session_id = "episodic-test-save-turn"
+    await store.save_turn(db_session, session_id, "user msg", "assistant msg", source="chat")
     from sqlalchemy import select
 
     result = await db_session.execute(
-        select(EpisodicMemory).where(EpisodicMemory.session_id == "test-session")
+        select(EpisodicMemory).where(EpisodicMemory.session_id == session_id)
     )
     entries = result.scalars().all()
     assert len(entries) == 2

@@ -79,6 +79,11 @@ class TalonSettings(BaseSettings):
         """Path to compiled core matrix JSON (output of compressor)."""
         return self.project_root / "data" / "core_matrix.json"
 
+    @property
+    def skills_dir(self) -> Path:
+        """Directory containing skill subdirectories (skill.toml + main.py)."""
+        return self.project_root / "backend" / "skills"
+
 
 _settings: TalonSettings | None = None
 

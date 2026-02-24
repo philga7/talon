@@ -41,4 +41,3 @@ async def retry_async(  # noqa: UP047
 
     assert last_exc is not None  # for type-checkers
     raise last_exc
-

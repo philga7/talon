@@ -10,6 +10,8 @@ from app.memory.compressor import MemoryCompressor
 from app.memory.engine import MemoryEngine
 from app.memory.episodic import EpisodicStore
 from app.memory.working import WorkingMemoryStore
+from app.skills.executor import SkillExecutor
+from app.skills.registry import SkillRegistry
 
 # Engine and session factory — initialized at startup
 _engine = None
@@ -20,6 +22,10 @@ _gateway: LLMGateway | None = None
 
 # Memory engine — initialized at startup (Phase 3)
 _memory: MemoryEngine | None = None
+
+# Skill registry and executor — initialized at startup (Phase 4)
+_registry: SkillRegistry | None = None
+_executor: SkillExecutor | None = None
 
 
 def init_db(settings: object) -> None:
@@ -56,6 +62,34 @@ def init_memory(settings: TalonSettings) -> None:
     )
 
 
+def init_registry(settings: TalonSettings) -> None:
+    """Initialize the skill registry and executor (Phase 4). Scan loads skills sync; on_load runs in load_registry_skills()."""
+    global _registry, _executor
+    _registry = SkillRegistry(settings.skills_dir)
+    _registry.scan()
+    _executor = SkillExecutor()
+
+
+async def load_registry_skills() -> None:
+    """Load all skills (scan + on_load). Call once at startup after init_registry."""
+    if _registry is not None:
+        await _registry.load_all()
+
+
+async def get_registry() -> SkillRegistry:
+    """Skill registry dependency."""
+    if _registry is None:
+        raise RuntimeError("Skill registry not initialized; call init_registry at startup")
+    return _registry
+
+
+def get_executor() -> SkillExecutor:
+    """Skill executor dependency."""
+    if _executor is None:
+        raise RuntimeError("Skill executor not initialized; call init_registry at startup")
+    return _executor
+
+
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Yield an async database session."""
     if _async_session_factory is None:
@@ -85,11 +119,6 @@ def get_memory() -> MemoryEngine:
         msg = "Memory engine not initialized; call init_memory at startup"
         raise RuntimeError(msg)
     return _memory
-
-
-async def get_registry() -> None:
-    """Skill registry (Phase 4). Stub returns None."""
-    return None
 
 
 async def get_scheduler() -> None:

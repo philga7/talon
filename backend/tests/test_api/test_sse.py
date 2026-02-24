@@ -28,4 +28,3 @@ async def test_sse_streams_tokens(client: AsyncClient) -> None:
         assert "foo" in body or "bar" in body
     finally:
         app.dependency_overrides.pop(get_gateway, None)
-

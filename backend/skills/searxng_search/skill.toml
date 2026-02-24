@@ -1,0 +1,9 @@
+[skill]
+name = "searxng_search"
+version = "1.0.0"
+description = "Web search via local SearXNG instance"
+enabled = true
+
+[skill.permissions]
+network = true
+filesystem = false

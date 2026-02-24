@@ -64,4 +64,3 @@ class CircuitBreaker:
         if self._state != "open" or self._opened_at is None:
             return None
         return monotonic() - self._opened_at
-

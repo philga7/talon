@@ -1,0 +1,9 @@
+[skill]
+name = "yahoo_finance"
+version = "1.0.0"
+description = "Stock quotes and basic finance data via Yahoo Finance"
+enabled = true
+
+[skill.permissions]
+network = true
+filesystem = false

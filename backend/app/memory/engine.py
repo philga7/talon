@@ -66,7 +66,9 @@ class MemoryEngine:
                 if "schema" in data and "rows" in data:
                     return data
             except (OSError, json.JSONDecodeError) as e:
-                log.warning("core_matrix_load_failed", path=str(self._core_matrix_path), error=str(e))
+                log.warning(
+                    "core_matrix_load_failed", path=str(self._core_matrix_path), error=str(e)
+                )
         matrix = self._compressor.compile(self._memories_dir)
         self._write_core_matrix(matrix)
         return matrix

@@ -2,7 +2,7 @@
 
 Self-hosted personal AI gateway for a single operator. Licensed under [AGPL v3](LICENSE). Inspired by OpenClaw (Node.js/TypeScript). Python/TypeScript stack on a single Hostinger VPS.
 
-**Status: Phases 1–3 complete.** Foundation is implemented (FastAPI skeleton, config, logging, PostgreSQL+Alembic, health endpoint, deploy configs), the LLM gateway is online (`/api/chat`, `/api/sse/{session_id}`, `config/providers.yaml`), and the three-tier memory engine is wired up (core matrix compiler, episodic pgvector store, working memory, `/api/memory`).
+**Status: Phases 1–4 complete.** Foundation, LLM gateway, three-tier memory, and **Skills + Chat Router** are implemented. The chat pipeline runs a full tool-calling loop (context from memory → LLM with tools → skill execution → final response). Built-in skills: `searxng_search`, `yahoo_finance`. Registry inspection: `GET /api/skills`.
 
 - **Stack:** FastAPI, PostgreSQL+pgvector, React+Vite, SSE streaming, LiteLLM, APScheduler
 - **Docs:** See [AGENTS.md](AGENTS.md) for full spec and [`.cursor/plans/`](.cursor/plans/) for phased implementation roadmap (8 phases)
@@ -32,14 +32,15 @@ curl http://localhost:8088/api/memory  # compiled core_matrix + basic memory sta
 make test  # backend tests for all phases (gateway, memory, skills, ...)
 ```
 
-### Available endpoints (Phases 1–3)
+### Available endpoints (Phases 1–4)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/health` | Health status, provider circuit breakers, memory stats (`core_tokens`, `episodic_count`) |
-| GET | `/api/memory` | Compiled core matrix JSON and memory stats (debug / introspection) |
-| POST | `/api/chat` | Send a message; body `{"message":"…","session_id":"…"}` |
-| GET | `/api/sse/{session_id}?prompt=…` | Server-sent event stream of LLM tokens for the given prompt |
+| GET | `/api/health` | Health status, provider circuit breakers, memory stats |
+| GET | `/api/memory` | Compiled core matrix JSON and memory stats (debug) |
+| POST | `/api/chat` | Send a message; full tool-calling loop, context from memory |
+| GET | `/api/sse/{session_id}?prompt=…` | SSE stream: `token`, `tool_start`, `tool_result`, `done`, `error` |
+| GET | `/api/skills` | Loaded skills and tools (registry inspection) |
 
 Interactive API docs when the server is running: `http://localhost:8088/docs`.
 

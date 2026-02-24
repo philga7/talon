@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: phase-4
     content: "Phase 4: Skills + Chat Router -- BaseSkill, registry, executor, ChatRouter, tool-calling loop, SSE streaming, port searxng_search + yahoo_finance skills"
-    status: pending
+    status: completed
   - id: phase-5
     content: "Phase 5: Frontend MVP -- Vite + React + TypeScript, TailwindCSS + daisyUI, chat components, useSSE hook, Zustand store, API client, health dashboard"
     status: pending

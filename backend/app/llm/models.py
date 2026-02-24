@@ -10,10 +10,12 @@ ChatRole = Literal["system", "user", "assistant", "tool"]
 
 
 class ChatMessage(BaseModel):
-    """Single chat message sent to or from the LLM."""
+    """Single chat message sent to or from the LLM (OpenAI-compatible)."""
 
     role: ChatRole
-    content: str = Field(..., min_length=1)
+    content: str = Field(default="", min_length=0)
+    tool_calls: list[dict[str, Any]] | None = None
+    tool_call_id: str | None = None
 
 
 class ProviderConfig(BaseModel):
@@ -30,6 +32,7 @@ class LLMRequest(BaseModel):
     """Request payload for the LLM gateway."""
 
     messages: list[ChatMessage]
+    tools: list[dict[str, Any]] | None = None
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int | None = Field(default=None, ge=1)
 
@@ -50,4 +53,3 @@ class ProviderStatus(BaseModel):
     state: Literal["closed", "open", "half_open"]
     failure_count: int
     opened_seconds_ago: float | None = None
-

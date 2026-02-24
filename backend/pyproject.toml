@@ -17,6 +17,7 @@ dependencies = [
     "litellm",
     "pyyaml",
     "pgvector>=0.3.0",
+    "tomli>=2.0.0",
     "pytest>=8.3.0",
     "pytest-asyncio>=0.24.0",
 ]
@@ -46,6 +47,7 @@ ignore = ["E501"]
 [tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
+exclude = ["alembic"]
 reportMissingImports = false
 reportMissingTypeStubs = false
 reportUnknownVariableType = false
