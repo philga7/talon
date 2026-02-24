@@ -81,7 +81,7 @@ graph LR
 
 ```
 make services-up && make migrate && make dev
-curl http://localhost:8000/api/health  # returns {"status": "healthy"}
+curl http://localhost:8088/api/health  # returns {"status": "healthy"}
 make test  # passes
 ```
 
@@ -108,8 +108,8 @@ make test  # passes
 **Verification on VPS:**
 
 ```
-curl -X POST http://localhost:8000/api/chat -d '{"message":"hello","session_id":"test"}'
-curl http://localhost:8000/api/health | jq .providers
+curl -X POST http://localhost:8088/api/chat -d '{"message":"hello","session_id":"test"}'
+curl http://localhost:8088/api/health | jq .providers
 make test-chaos  # circuit breaker stress tests pass
 ```
 
@@ -137,8 +137,8 @@ make test-chaos  # circuit breaker stress tests pass
 **Verification on VPS:**
 
 ```
-curl http://localhost:8000/api/health | jq .memory
-curl http://localhost:8000/api/memory  # shows core_matrix + stats
+curl http://localhost:8088/api/health | jq .memory
+curl http://localhost:8088/api/memory  # shows core_matrix + stats
 make test  # memory tests pass
 ```
 
@@ -168,11 +168,11 @@ make test  # memory tests pass
 **Verification on VPS:**
 
 ```
-curl -X POST http://localhost:8000/api/chat \
+curl -X POST http://localhost:8088/api/chat \
   -H 'Content-Type: application/json' \
   -d '{"message":"What is AAPL stock price?","session_id":"test"}'
 # Full tool-calling loop executes, response includes tool_start + tool_result
-curl http://localhost:8000/api/skills | jq  # shows loaded skills
+curl http://localhost:8088/api/skills | jq  # shows loaded skills
 ```
 
 **Personas involved:** Skills Developer, Backend Engineer, Architect, QA
@@ -231,7 +231,7 @@ make build  # builds frontend/dist/
 # Edit data/memories/identity.md on the VPS
 # Within seconds, core_matrix.json recompiles (check via /api/memory)
 # Edit a skill file -- registry hot-reloads (check via /api/skills)
-curl http://localhost:8000/api/scheduler/jobs | jq  # shows all registered jobs
+curl http://localhost:8088/api/scheduler/jobs | jq  # shows all registered jobs
 ```
 
 **Personas involved:** Backend Engineer, Architect, QA

@@ -12,10 +12,10 @@ FastAPI runs natively via systemd. Auxiliary stateful services run in Docker.
 │                                                     │
 │  nginx (port 80/443)                                │
 │    /           → frontend/dist/ (static)            │
-│    /api/*      → localhost:8000 (FastAPI)            │
+│    /api/*      → localhost:8088 (FastAPI)            │
 │                                                     │
 │  talon.service (systemd)                            │
-│    uvicorn app.main:app --port 8000 --workers 4     │
+│    uvicorn app.main:app --port 8088 --workers 4     │
 │                                                     │
 │  Docker Compose                                     │
 │    postgres:16-pgvector  (127.0.0.1:5432)          │
@@ -40,7 +40,7 @@ Environment=PYTHONPATH=/root/talon/backend
 ExecStartPre=/usr/bin/docker compose -f /root/talon/docker-compose.yml up -d
 ExecStart=/root/talon/.venv/bin/uvicorn app.main:app \
     --host 0.0.0.0 \
-    --port 8000 \
+    --port 8088 \
     --workers 4 \
     --loop uvloop
 Restart=always
@@ -105,7 +105,7 @@ server {
     }
 
     location /api/ {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:8088;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -115,7 +115,7 @@ server {
     }
 
     location /api/sse/ {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:8088;
         proxy_http_version 1.1;
         proxy_set_header Connection "";
         proxy_buffering off;

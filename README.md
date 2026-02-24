@@ -27,8 +27,8 @@ make migrate
 make dev
 
 # 5. Verify (and reuse for later phases)
-curl http://localhost:8000/api/health  # status + provider circuit breaker + memory stats
-curl http://localhost:8000/api/memory  # compiled core_matrix + basic memory stats
+curl http://localhost:8088/api/health  # status + provider circuit breaker + memory stats
+curl http://localhost:8088/api/memory  # compiled core_matrix + basic memory stats
 make test  # backend tests for all phases (gateway, memory, skills, ...)
 ```
 
@@ -41,7 +41,7 @@ make test  # backend tests for all phases (gateway, memory, skills, ...)
 | POST | `/api/chat` | Send a message; body `{"message":"…","session_id":"…"}` |
 | GET | `/api/sse/{session_id}?prompt=…` | Server-sent event stream of LLM tokens for the given prompt |
 
-Interactive API docs when the server is running: `http://localhost:8000/docs`.
+Interactive API docs when the server is running: `http://localhost:8088/docs`.
 
 ## VPS Deploy (Phase 1)
 
@@ -72,7 +72,7 @@ systemctl enable talon.service
 systemctl start talon.service
 
 # 5. Verify
-curl http://localhost:8000/api/health  # {"status":"healthy"}
+curl http://localhost:8088/api/health  # {"status":"healthy"}
 ```
 
 ### Stopping / Tearing Down

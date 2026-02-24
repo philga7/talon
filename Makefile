@@ -3,7 +3,7 @@
 BACKEND := backend
 
 dev:
-	cd $(BACKEND) && .venv/bin/python -m uvicorn app.main:app --reload --port 8000
+	cd $(BACKEND) && .venv/bin/python -m uvicorn app.main:app --reload --port 8088
 
 services-up:
 	docker compose up -d
@@ -18,7 +18,7 @@ test:
 	cd $(BACKEND) && .venv/bin/python -m pytest tests -m "not llm_eval" -v -q
 
 health:
-	@curl -s http://localhost:8000/api/health | python3 -m json.tool
+	@curl -s http://localhost:8088/api/health | python3 -m json.tool
 
 status:
 	@docker compose ps
