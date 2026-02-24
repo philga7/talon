@@ -22,7 +22,8 @@ services:
     image: searxng/searxng:latest
     restart: always
     ports:
-      - "127.0.0.1:8080:8080"
+      # Host 8082 so 8088 stays free for the Talon API
+      - "127.0.0.1:8082:8080"
     volumes:
       - searxng_data:/etc/searxng
 
