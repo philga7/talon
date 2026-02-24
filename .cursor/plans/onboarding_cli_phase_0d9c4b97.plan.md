@@ -87,7 +87,7 @@ Adapted from OpenClaw's `runOnboardingWizard()`, the flow for Talon:
    - Python 3.12+ present
    - Docker running
    - Disk space > 10 GB free
-   - Port 5432 / 8000 / 8080 available
+   - Port 5432 / 8088 / 8080 available
 4. Secrets setup:
    - Generate or enter DB password -> config/secrets/db_password
    - Enter LLM API keys -> config/secrets/llm_api_keys (JSON)
