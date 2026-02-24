@@ -12,18 +12,25 @@ os.environ.setdefault("DB_PASSWORD", "test")
 
 
 from app.core.config import get_settings  # noqa: E402
-from app.dependencies import get_gateway, init_db, init_gateway, init_memory  # noqa: E402
+from app.dependencies import (  # noqa: E402
+    get_gateway,
+    init_db,
+    init_gateway,
+    init_memory,
+    init_registry,
+)
 from app.llm.models import LLMResponse, ProviderStatus  # noqa: E402
 from app.main import app  # noqa: E402
 
 
 @pytest.fixture
 def _ensure_app_initialized() -> None:  # pyright: ignore[reportUnusedFunction]
-    """Run app startup inits (DB, gateway, memory) so endpoints that need them work."""
+    """Run app startup inits (DB, gateway, memory, registry) so endpoints that need them work."""
     settings = get_settings()
     init_db(settings)
     init_gateway(settings)
     init_memory(settings)
+    init_registry(settings)
 
 
 class FakeGateway:
@@ -73,4 +80,3 @@ async def client(
         base_url="http://test",
     ) as ac:
         yield ac
-

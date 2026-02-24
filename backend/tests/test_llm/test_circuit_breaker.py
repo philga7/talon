@@ -54,4 +54,3 @@ async def test_all_providers_down_raises() -> None:
 
     with pytest.raises(AllProvidersDown):
         await gateway.complete(request)
-

@@ -77,6 +77,7 @@ class LLMGateway:
                 continue
 
             try:
+
                 async def _op(provider_config: ProviderConfig = provider) -> LLMResponse:
                     return await self._call_provider(provider_config, request)
 
@@ -104,14 +105,13 @@ class LLMGateway:
         )
         raise AllProvidersDown()
 
-    async def stream(self, request: LLMRequest) -> AsyncGenerator[str, None]:
-        """Stream tokens from the first healthy provider in the chain.
+    async def stream(
+        self, request: LLMRequest
+    ) -> AsyncGenerator[str | tuple[str, list[dict[str, Any]]], None]:
+        """Stream tokens and optionally tool_calls from the first healthy provider.
 
-        This is a minimal streaming abstraction for Phase 2. Higher-level
-        SSE event typing is handled at the API layer.
+        Yields either: str (content token) or ("tool_calls", list) at end of stream.
         """
-        # For now, we simply delegate to the same provider selection logic as
-        # complete(), but with stream-enabled calls.
         for provider in self._providers:
             breaker = self._breakers[provider.name]
             if not breaker.can_attempt():
@@ -142,16 +142,20 @@ class LLMGateway:
     ) -> LLMResponse:
         """Invoke a single provider via LiteLLM and normalize the response."""
         api_key = os.getenv(provider.api_key_env, "")
+        messages_payload = [
+            {k: v for k, v in m.model_dump().items() if v is not None} for m in request.messages
+        ]
         litellm_params: dict[str, Any] = {
             "model": provider.model,
-            "messages": [m.model_dump() for m in request.messages],
+            "messages": messages_payload,
             "temperature": request.temperature,
         }
         if request.max_tokens is not None:
             litellm_params["max_tokens"] = request.max_tokens
+        if request.tools:
+            litellm_params["tools"] = request.tools
+            litellm_params["tool_choice"] = "auto"
 
-        # LiteLLM reads API keys from env vars; we keep explicit here to make
-        # tests simpler, but do not log the key.
         response = await litellm.acompletion(api_key=api_key, **litellm_params)
         raw = cast(dict[str, Any], response)
 
@@ -183,21 +187,28 @@ class LLMGateway:
         self,
         provider: ProviderConfig,
         request: LLMRequest,
-    ) -> AsyncGenerator[str, None]:
-        """Invoke a single provider via LiteLLM in streaming mode."""
+    ) -> AsyncGenerator[str | tuple[str, list[dict[str, Any]]], None]:
+        """Stream content tokens; at end yield ("tool_calls", list) if present."""
         api_key = os.getenv(provider.api_key_env, "")
+        messages_payload = [
+            {k: v for k, v in m.model_dump().items() if v is not None} for m in request.messages
+        ]
         litellm_params: dict[str, Any] = {
             "model": provider.model,
-            "messages": [m.model_dump() for m in request.messages],
+            "messages": messages_payload,
             "temperature": request.temperature,
             "stream": True,
         }
         if request.max_tokens is not None:
             litellm_params["max_tokens"] = request.max_tokens
+        if request.tools:
+            litellm_params["tools"] = request.tools
+            litellm_params["tool_choice"] = "auto"
 
         stream = cast(Any, litellm.acompletion(api_key=api_key, **litellm_params))
+        # Accumulate tool_calls from delta chunks (OpenAI stream format).
+        tool_calls_accum: dict[int, dict[str, Any]] = {}
         async for chunk in stream:
-            # LiteLLM streams OpenAI-style ChatCompletionChunk objects.
             choices = getattr(chunk, "choices", None)
             if choices is None and isinstance(chunk, dict):
                 choices = chunk.get("choices") or []
@@ -208,6 +219,29 @@ class LLMGateway:
             content_piece = delta.get("content")
             if content_piece:
                 yield content_piece
+            for tc in delta.get("tool_calls") or []:
+                idx = tc.get("index")
+                if idx is None:
+                    continue
+                if idx not in tool_calls_accum:
+                    tool_calls_accum[idx] = {
+                        "id": tc.get("id") or "",
+                        "type": "function",
+                        "function": {"name": "", "arguments": ""},
+                    }
+                acc = tool_calls_accum[idx]
+                if tc.get("id"):
+                    acc["id"] = tc["id"]
+                fn = tc.get("function") or {}
+                if fn.get("name"):
+                    acc["function"]["name"] = (acc["function"]["name"] or "") + fn["name"]
+                if fn.get("arguments"):
+                    acc["function"]["arguments"] = (acc["function"]["arguments"] or "") + fn[
+                        "arguments"
+                    ]
+        if tool_calls_accum:
+            ordered = [tool_calls_accum[i] for i in sorted(tool_calls_accum)]
+            yield ("tool_calls", ordered)
 
 
 def _providers_yaml_path(settings: TalonSettings) -> Path:
@@ -235,4 +269,3 @@ def create_gateway(settings: TalonSettings) -> LLMGateway:
     """Factory for constructing the LLMGateway from settings + config file."""
     providers = load_provider_configs(settings)
     return LLMGateway(providers=providers)
-

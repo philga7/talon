@@ -2,13 +2,13 @@
 
 Self-hosted personal AI gateway for a single operator. Licensed under [AGPL v3](LICENSE). Inspired by OpenClaw (Node.js/TypeScript). Python/TypeScript stack on a single Hostinger VPS.
 
-**Status: Phases 1–3 complete.** Foundation is implemented (FastAPI skeleton, config, logging, PostgreSQL+Alembic, health endpoint, deploy configs), the LLM gateway is online (`/api/chat`, `/api/sse/{session_id}`, `config/providers.yaml`), and the three-tier memory engine is wired up (core matrix compiler, episodic pgvector store, working memory, `/api/memory`).
+**Status: Phases 1–4 complete.** Foundation, LLM gateway, three-tier memory, and **Skills + Chat Router** are implemented. The chat pipeline runs a full tool-calling loop (context from memory → LLM with tools → skill execution → final response). Built-in skills: `searxng_search`, `yahoo_finance`. Registry inspection: `GET /api/skills`.
 
 - **Stack:** FastAPI, PostgreSQL+pgvector, React+Vite, SSE streaming, LiteLLM, APScheduler
 - **Docs:** See [AGENTS.md](AGENTS.md) for full spec and [`.cursor/plans/`](.cursor/plans/) for phased implementation roadmap (8 phases)
 - **CI:** GitHub Actions runs backend lint (ruff, pyright) + tests (`make test`) on pushes to `main` and `feature/**` and on all PRs.
 
-## Quick Start (Backend Phases 1–3)
+## Quick Start (Backend Phases 1–4)
 
 ```bash
 # 1. Create virtualenv and install deps
@@ -19,27 +19,33 @@ mkdir -p config/secrets && chmod 700 config/secrets
 echo "your_postgres_password" > config/secrets/db_password
 chmod 600 config/secrets/db_password
 
-# 3. Start services and migrate
+# 3. Configure at least one LLM provider (config/providers.yaml)
+#    and set the API key env var(s) it references (e.g. OPENAI_API_KEY).
+
+# 4. Start services (Postgres + SearXNG) and migrate
 make services-up
 make migrate
 
-# 4. Run backend
+# 5. Run backend
 make dev
 
-# 5. Verify (and reuse for later phases)
-curl http://localhost:8088/api/health  # status + provider circuit breaker + memory stats
-curl http://localhost:8088/api/memory  # compiled core_matrix + basic memory stats
-make test  # backend tests for all phases (gateway, memory, skills, ...)
+# 6. Verify
+curl http://localhost:8088/api/health   # status, providers, memory stats
+curl http://localhost:8088/api/skills  # loaded skills (searxng_search, yahoo_finance)
+curl -X POST http://localhost:8088/api/chat -H 'Content-Type: application/json' \
+  -d '{"message":"What is AAPL stock price?","session_id":"quickstart"}'
+make test  # backend tests (gateway, memory, skills, chat, ...)
 ```
 
-### Available endpoints (Phases 1–3)
+### Available endpoints (Phases 1–4)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/health` | Health status, provider circuit breakers, memory stats (`core_tokens`, `episodic_count`) |
-| GET | `/api/memory` | Compiled core matrix JSON and memory stats (debug / introspection) |
-| POST | `/api/chat` | Send a message; body `{"message":"…","session_id":"…"}` |
-| GET | `/api/sse/{session_id}?prompt=…` | Server-sent event stream of LLM tokens for the given prompt |
+| GET | `/api/health` | Health status, provider circuit breakers, memory stats |
+| GET | `/api/memory` | Compiled core matrix JSON and memory stats (debug) |
+| POST | `/api/chat` | Send a message; full tool-calling loop, context from memory |
+| GET | `/api/sse/{session_id}?prompt=…` | SSE stream: `token`, `tool_start`, `tool_result`, `done`, `error` |
+| GET | `/api/skills` | Loaded skills and tools (registry inspection) |
 
 Interactive API docs when the server is running: `http://localhost:8088/docs`.
 

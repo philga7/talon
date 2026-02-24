@@ -187,6 +187,8 @@ cd frontend && npm run dev
 
 Health check: `curl http://localhost:8088/api/health | jq`
 
-Basic chat (Phase 2): `curl -X POST http://localhost:8088/api/chat -H 'Content-Type: application/json' -d '{"message":"hello","session_id":"test"}'`
+Chat with tool-calling loop (Phase 4): `curl -X POST http://localhost:8088/api/chat -H 'Content-Type: application/json' -d '{"message":"What is AAPL stock price?","session_id":"test"}'`
 
-Basic SSE stream (Phase 2): `curl 'http://localhost:8088/api/sse/test-session?prompt=hello'`
+SSE stream (token, tool_start, tool_result, done): `curl 'http://localhost:8088/api/sse/test-session?prompt=hello'`
+
+Skills registry: `curl http://localhost:8088/api/skills | jq`
