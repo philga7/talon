@@ -127,10 +127,21 @@ If you cloned the repo somewhere other than `/root/talon`, edit `root` in `/etc/
 
 ### 5. Access the UI
 
-- From your **local browser**, open:
-  - **http://&lt;your-vps-ip&gt;/** (e.g. `http://203.0.113.50/`)
-  - or **http://&lt;your-domain&gt;/** if you point a domain at the VPS.
-- You should see the Talon chat UI (Chat and Health tabs). All requests to `/api/*` are proxied by nginx to the backend on port 8088.
+You can reach the UI in two ways. **You do not need to expose the app on the public internet** unless you want to.
+
+**Option A — SSH tunnel (recommended for a single operator, same idea as OpenClaw)**  
+No public HTTP/HTTPS needed. From your **local machine**:
+
+```bash
+ssh -L 8080:localhost:80 root@<your-vps-ip>
+```
+
+Leave that session open (or use `-f -N` to background the tunnel). Then in your browser open **http://localhost:8080**. Your browser talks to your machine’s port 8080, which is forwarded over SSH to nginx (port 80) on the VPS. The UI and all `/api/*` requests go through the tunnel; nothing is exposed to the internet.
+
+**Option B — Public access**  
+If you want to open the UI from anywhere without an SSH tunnel, open port 80 (and optionally 443 for HTTPS) in your firewall and use **http://&lt;your-vps-ip&gt;/** or **http://&lt;your-domain&gt;/** in the browser. For production you’d typically add HTTPS (e.g. Let’s Encrypt).
+
+In both cases you get the same Talon chat UI (Chat and Health tabs). Nginx serves the frontend and proxies `/api/*` to the backend.
 
 **Verify backend** (on the VPS):
 
