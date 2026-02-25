@@ -70,6 +70,25 @@ Still open the UI at **http://localhost:5173**.
 
 Interactive API docs when the server is running: `http://localhost:8088/docs`.
 
+## Logs
+
+- **HTTP I/O (nginx)** – see browser requests, SSE, and proxy errors:
+  ```bash
+  sudo tail -f /var/log/nginx/access.log
+  sudo tail -f /var/log/nginx/error.log
+  ```
+
+- **Talon app logs** – structured JSON for chat, skills, memory:
+  ```bash
+  cd /root/talon
+  tail -f data/logs/talon.jsonl | jq
+  ```
+
+- **Service startup/crashes** – systemd journal:
+  ```bash
+  sudo journalctl -u talon.service -f
+  ```
+
 ## VPS Deploy
 
 These steps assume the repo lives at `/root/talon` on the VPS (so nginx can serve `frontend/dist` from the path in `deploy/nginx.conf`). Docker and nginx must be installed.
