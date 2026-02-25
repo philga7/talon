@@ -52,7 +52,9 @@ class SlackIntegration(BaseIntegration):
             return
 
         try:
-            from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler  # pyright: ignore[reportMissingImports]
+            from slack_bolt.adapter.socket_mode.async_handler import (
+                AsyncSocketModeHandler,  # pyright: ignore[reportMissingImports]
+            )
             from slack_bolt.async_app import AsyncApp  # pyright: ignore[reportMissingImports]
 
             self._bolt_app = AsyncApp(token=self._bot_token)
