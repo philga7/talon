@@ -37,6 +37,7 @@ Core responsibilities:
 | Frontend | React 18 + Vite + TypeScript | `frontend/` directory |
 | Styling | TailwindCSS v4 + daisyUI v5 | No custom CSS unless unavoidable |
 | Realtime | Server-Sent Events (SSE) | `/api/sse/{session_id}` |
+| Integrations | Discord (discord.py), Slack (slack_bolt Socket Mode), Webhook | Conditional on secrets; routes through `ChatRouter` |
 | Logging | structlog (JSON lines) | `data/logs/talon.jsonl` |
 | Deployment | systemd (`talon.service`) + Docker Compose | Auxiliary services only in Docker |
 | Secrets | Pydantic `BaseSettings` with `secrets_dir` | `config/secrets/` chmod 700/600 |
@@ -56,7 +57,7 @@ Core responsibilities:
 │   │   ├── llm/                 LLM gateway, circuit breaker, providers
 │   │   ├── memory/              Compressor, episodic store, working memory
 │   │   ├── skills/              BaseSkill, registry, executor
-│   │   ├── integrations/        Discord, Slack, webhook
+│   │   ├── integrations/        Discord, Slack, webhook, manager
 │   │   ├── scheduler/           APScheduler engine + built-in jobs
 │   │   ├── sentinel/            watchdog watcher + directory tree
 │   │   └── core/                Config, logging, middleware, security, errors
@@ -160,6 +161,8 @@ All provider config lives in `config/providers.yaml`.
 - PostgreSQL is accessed **only** via SQLAlchemy async sessions.
 - The frontend is a **pure static build** served by nginx.
 - All chat, regardless of platform, routes through `ChatRouter`.
+- Integrations (Discord, Slack, webhook) start conditionally based on secrets.
+  Missing secrets = silently skipped; no crash, no error.
 
 ---
 

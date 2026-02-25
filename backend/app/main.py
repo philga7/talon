@@ -17,12 +17,14 @@ from app.core.middleware import CorrelationIDMiddleware, RateLimitMiddleware
 from app.dependencies import (
     init_db,
     init_gateway,
+    init_integrations,
     init_memory,
     init_registry,
     init_scheduler,
     init_sentinel,
     load_registry_skills,
 )
+from app.integrations.webhook import router as webhook_router
 
 
 @asynccontextmanager
@@ -44,8 +46,11 @@ async def lifespan(app: FastAPI):
 
     sentinel = init_sentinel(settings)
 
+    integration_mgr = await init_integrations(settings)
+
     yield
 
+    await integration_mgr.stop_all()
     sentinel.stop()
     scheduler.shutdown()
 
@@ -81,6 +86,7 @@ def create_app() -> FastAPI:
     app.include_router(skills_router)
     app.include_router(sse_router)
     app.include_router(scheduler_router)
+    app.include_router(webhook_router)
 
     return app
 

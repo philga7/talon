@@ -2,9 +2,9 @@
 
 Self-hosted personal AI gateway for a single operator. Licensed under [AGPL v3](LICENSE). Inspired by OpenClaw (Node.js/TypeScript). Python/TypeScript stack on a single Hostinger VPS.
 
-**Status: Phases 1–6 complete.** Foundation, LLM gateway, three-tier memory, Skills + Chat Router, Frontend MVP, and **Scheduler + Sentinel** are implemented. APScheduler runs built-in maintenance jobs (memory recompile, log rotation, working memory GC, health sweeps). watchdog-based FileSentinel hot-reloads skills and recompiles memory on file changes.
+**Status: Phases 1–7 complete.** Foundation, LLM gateway, three-tier memory, Skills + Chat Router, Frontend MVP, Scheduler + Sentinel, and **Integrations + remaining skills** are implemented. Discord, Slack (Socket Mode), and webhook integrations route messages through the unified ChatRouter. Skills now include `searxng_search`, `yahoo_finance`, `weather_enhanced`, and `hostinger_email`.
 
-- **Stack:** FastAPI, PostgreSQL+pgvector, React+Vite+TypeScript, TailwindCSS v4+daisyUI v5, SSE streaming, LiteLLM, Zustand, APScheduler, watchdog
+- **Stack:** FastAPI, PostgreSQL+pgvector, React+Vite+TypeScript, TailwindCSS v4+daisyUI v5, SSE streaming, LiteLLM, Zustand, APScheduler, watchdog, discord.py, slack_bolt
 - **Docs:** See [AGENTS.md](AGENTS.md) for full spec and [`.cursor/plans/`](.cursor/plans/) for phased implementation roadmap
 - **CI:** GitHub Actions runs backend lint (ruff, pyright) + tests, and frontend lint (ESLint) + type-check (tsc) + tests (Vitest) + build on all PRs.
 
@@ -69,8 +69,21 @@ Still open the UI at **http://localhost:5173**.
 | GET | `/api/skills` | Loaded skills and tools (registry inspection) |
 | GET | `/api/scheduler/jobs` | Registered scheduled jobs and status |
 | POST | `/api/scheduler/jobs/{id}/trigger` | Manually trigger a scheduled job |
+| POST | `/api/integrations/webhook` | Generic webhook receiver (routes through ChatRouter) |
 
 Interactive API docs when the server is running: `http://localhost:8088/docs`.
+
+### Integrations (Discord, Slack, Webhook)
+
+Integrations connect external platforms to the ChatRouter. They start automatically at boot if their secrets are present and skip silently if not.
+
+| Integration | Secrets needed | Install |
+|---|---|---|
+| Discord | `config/secrets/discord_bot_token` | `pip install discord.py` (or `pip install -e .[discord]`) |
+| Slack | `config/secrets/slack_bot_token` + `config/secrets/slack_app_token` | `pip install slack-bolt` (or `pip install -e .[slack]`) |
+| Webhook | Optional `config/secrets/webhook_secret` for HMAC auth | Built-in |
+
+Integration status appears in `GET /api/health` under the `integrations` key.
 
 ## Logs
 

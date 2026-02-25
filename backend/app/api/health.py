@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_db, get_gateway, get_memory, get_scheduler
+from app.dependencies import get_db, get_gateway, get_integration_manager, get_memory, get_scheduler
+from app.integrations.manager import IntegrationManager
 from app.llm.gateway import LLMGateway
 from app.llm.models import ProviderStatus
 from app.memory.engine import MemoryEngine
@@ -36,6 +37,14 @@ class SchedulerHealth(BaseModel):
     job_count: int = Field(ge=0)
 
 
+class IntegrationHealth(BaseModel):
+    """Single integration status."""
+
+    name: str
+    connected: bool
+    error: str | None = None
+
+
 class HealthResponse(BaseModel):
     """Health check response."""
 
@@ -43,6 +52,7 @@ class HealthResponse(BaseModel):
     providers: list[ProviderHealth]
     memory: MemoryHealth
     scheduler: SchedulerHealth
+    integrations: list[IntegrationHealth] = Field(default_factory=list)
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -51,8 +61,9 @@ async def health(
     gateway: LLMGateway = Depends(get_gateway),  # noqa: B008
     memory: MemoryEngine = Depends(get_memory),  # noqa: B008
     scheduler: TalonScheduler = Depends(get_scheduler),  # noqa: B008
+    integrations: IntegrationManager = Depends(get_integration_manager),  # noqa: B008
 ) -> HealthResponse:
-    """Return health status including LLM providers, memory, and scheduler."""
+    """Return health status including LLM providers, memory, scheduler, and integrations."""
     statuses: list[ProviderStatus] = gateway.get_provider_statuses()
     providers = [
         ProviderHealth(
@@ -78,9 +89,19 @@ async def health(
         job_count=scheduler.job_count,
     )
 
+    integration_health = [
+        IntegrationHealth(
+            name=s.name,
+            connected=s.connected,
+            error=s.error,
+        )
+        for s in integrations.statuses()
+    ]
+
     return HealthResponse(
         status=overall_status,
         providers=providers,
         memory=memory_health,
         scheduler=scheduler_health,
+        integrations=integration_health,
     )

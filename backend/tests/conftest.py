@@ -14,12 +14,14 @@ os.environ.setdefault("DB_PASSWORD", "test")
 from app.core.config import get_settings  # noqa: E402
 from app.dependencies import (  # noqa: E402
     get_gateway,
+    get_integration_manager,
     get_scheduler,
     init_db,
     init_gateway,
     init_memory,
     init_registry,
 )
+from app.integrations.base import IntegrationStatus  # noqa: E402
 from app.llm.models import LLMResponse, ProviderStatus  # noqa: E402
 from app.main import app  # noqa: E402
 
@@ -77,6 +79,19 @@ class FakeScheduler:
         return False
 
 
+class FakeIntegrationManager:
+    """Minimal fake integration manager for tests."""
+
+    def statuses(self) -> list[IntegrationStatus]:
+        return [
+            IntegrationStatus(name="webhook", connected=True, error=None),
+        ]
+
+    @property
+    def integrations(self) -> list[Any]:
+        return []
+
+
 @pytest.fixture
 def mock_gateway() -> Generator[FakeGateway, None, None]:
     """Mocked LLM gateway for tests (no real provider calls)."""
@@ -100,9 +115,21 @@ def mock_scheduler() -> Generator[FakeScheduler, None, None]:
 
 
 @pytest.fixture
+def mock_integrations() -> Generator[FakeIntegrationManager, None, None]:
+    """Mocked integration manager for tests."""
+    mgr = FakeIntegrationManager()
+    app.dependency_overrides[get_integration_manager] = lambda: mgr
+    try:
+        yield mgr
+    finally:
+        app.dependency_overrides.pop(get_integration_manager, None)
+
+
+@pytest.fixture
 async def client(
     mock_gateway: FakeGateway,
     mock_scheduler: FakeScheduler,
+    mock_integrations: FakeIntegrationManager,
     _ensure_app_initialized: None,
 ) -> AsyncGenerator[AsyncClient, None]:
     """Async HTTP client for API tests."""
