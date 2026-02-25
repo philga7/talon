@@ -29,15 +29,34 @@ chmod 600 config/secrets/db_password
 make services-up
 make migrate
 
-# 6. Run (backend + frontend dev servers)
+# 6. Run backend + frontend (see "Running locally" below)
 make dev
 
 # 7. Verify
-#    Frontend: http://localhost:5173 (Vite dev proxy → backend)
-#    Backend:  http://localhost:8088/api/health
 make test           # backend tests
 make test-frontend  # frontend tests (Vitest)
 ```
+
+## Running locally
+
+From the **project root** (the directory that contains `backend/`, `frontend/`, and `Makefile`):
+
+1. **Start both backend and frontend** (one command; runs two processes):
+   ```bash
+   make dev
+   ```
+   This starts:
+   - **Backend**: Uvicorn on **http://localhost:8088**
+   - **Frontend**: Vite dev server on **http://localhost:5173** (proxies `/api/*` to the backend)
+
+2. **Open the UI** in your browser:
+   - **http://localhost:5173**
+   You’ll see the Talon chat UI (Chat tab) and a Health tab. All API requests from the UI go through the frontend dev server, which forwards them to the backend.
+
+To run backend and frontend in **separate terminals** instead:
+- Terminal 1: `make dev-backend` → backend at http://localhost:8088
+- Terminal 2: `make dev-frontend` → frontend at http://localhost:5173  
+Still open the UI at **http://localhost:5173**.
 
 ### Available endpoints
 
