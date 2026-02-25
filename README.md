@@ -2,9 +2,9 @@
 
 Self-hosted personal AI gateway for a single operator. Licensed under [AGPL v3](LICENSE). Inspired by OpenClaw (Node.js/TypeScript). Python/TypeScript stack on a single Hostinger VPS.
 
-**Status: Phases 1–5 complete.** Foundation, LLM gateway, three-tier memory, Skills + Chat Router, and **Frontend MVP** are implemented. The web UI streams chat responses via SSE, shows tool-use indicators, and includes a health dashboard with per-provider circuit breaker status. Light/dark theme support.
+**Status: Phases 1–6 complete.** Foundation, LLM gateway, three-tier memory, Skills + Chat Router, Frontend MVP, and **Scheduler + Sentinel** are implemented. APScheduler runs built-in maintenance jobs (memory recompile, log rotation, working memory GC, health sweeps). watchdog-based FileSentinel hot-reloads skills and recompiles memory on file changes.
 
-- **Stack:** FastAPI, PostgreSQL+pgvector, React+Vite+TypeScript, TailwindCSS v4+daisyUI v5, SSE streaming, LiteLLM, Zustand
+- **Stack:** FastAPI, PostgreSQL+pgvector, React+Vite+TypeScript, TailwindCSS v4+daisyUI v5, SSE streaming, LiteLLM, Zustand, APScheduler, watchdog
 - **Docs:** See [AGENTS.md](AGENTS.md) for full spec and [`.cursor/plans/`](.cursor/plans/) for phased implementation roadmap
 - **CI:** GitHub Actions runs backend lint (ruff, pyright) + tests, and frontend lint (ESLint) + type-check (tsc) + tests (Vitest) + build on all PRs.
 
@@ -67,6 +67,8 @@ Still open the UI at **http://localhost:5173**.
 | POST | `/api/chat` | Send a message; full tool-calling loop, context from memory |
 | GET | `/api/sse/{session_id}?prompt=…` | SSE stream: `token`, `tool_start`, `tool_result`, `done`, `error` |
 | GET | `/api/skills` | Loaded skills and tools (registry inspection) |
+| GET | `/api/scheduler/jobs` | Registered scheduled jobs and status |
+| POST | `/api/scheduler/jobs/{id}/trigger` | Manually trigger a scheduled job |
 
 Interactive API docs when the server is running: `http://localhost:8088/docs`.
 

@@ -1,13 +1,14 @@
 """Health check endpoint."""
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_db, get_gateway, get_memory
+from app.dependencies import get_db, get_gateway, get_memory, get_scheduler
 from app.llm.gateway import LLMGateway
 from app.llm.models import ProviderStatus
 from app.memory.engine import MemoryEngine
+from app.scheduler.engine import TalonScheduler
 
 router = APIRouter(prefix="/api", tags=["health"])
 
@@ -28,12 +29,20 @@ class MemoryHealth(BaseModel):
     episodic_count: int
 
 
+class SchedulerHealth(BaseModel):
+    """Scheduler subsystem stats."""
+
+    running: bool
+    job_count: int = Field(ge=0)
+
+
 class HealthResponse(BaseModel):
     """Health check response."""
 
     status: str
     providers: list[ProviderHealth]
     memory: MemoryHealth
+    scheduler: SchedulerHealth
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -41,8 +50,9 @@ async def health(
     db: AsyncSession = Depends(get_db),  # noqa: B008
     gateway: LLMGateway = Depends(get_gateway),  # noqa: B008
     memory: MemoryEngine = Depends(get_memory),  # noqa: B008
+    scheduler: TalonScheduler = Depends(get_scheduler),  # noqa: B008
 ) -> HealthResponse:
-    """Return basic health status including LLM providers and memory stats."""
+    """Return health status including LLM providers, memory, and scheduler."""
     statuses: list[ProviderStatus] = gateway.get_provider_statuses()
     providers = [
         ProviderHealth(
@@ -63,4 +73,14 @@ async def health(
         episodic_count=episodic_count,
     )
 
-    return HealthResponse(status=overall_status, providers=providers, memory=memory_health)
+    scheduler_health = SchedulerHealth(
+        running=scheduler.running,
+        job_count=scheduler.job_count,
+    )
+
+    return HealthResponse(
+        status=overall_status,
+        providers=providers,
+        memory=memory_health,
+        scheduler=scheduler_health,
+    )

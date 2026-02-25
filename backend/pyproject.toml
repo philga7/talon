@@ -18,6 +18,8 @@ dependencies = [
     "pyyaml",
     "pgvector>=0.3.0",
     "tomli>=2.0.0",
+    "apscheduler>=3.10.0,<4",
+    "watchdog>=4.0.0",
     "pytest>=8.3.0",
     "pytest-asyncio>=0.24.0",
 ]

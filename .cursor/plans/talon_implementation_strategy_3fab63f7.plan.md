@@ -19,7 +19,7 @@ todos:
     status: completed
   - id: phase-6
     content: "Phase 6: Scheduler + Sentinel -- TalonScheduler, built-in jobs, FileSentinel, EventRouter, hot-reload, scheduler API"
-    status: pending
+    status: completed
   - id: phase-7
     content: "Phase 7: Integrations + Remaining Skills -- Discord, Slack, webhook receiver, weather/email/news skills ported"
     status: pending

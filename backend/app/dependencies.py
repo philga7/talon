@@ -1,5 +1,8 @@
 """FastAPI dependency injection."""
 
+from __future__ import annotations
+
+import asyncio
 from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -10,6 +13,9 @@ from app.memory.compressor import MemoryCompressor
 from app.memory.engine import MemoryEngine
 from app.memory.episodic import EpisodicStore
 from app.memory.working import WorkingMemoryStore
+from app.scheduler.engine import TalonScheduler
+from app.sentinel.tree import EventRouter
+from app.sentinel.watcher import FileSentinel
 from app.skills.executor import SkillExecutor
 from app.skills.registry import SkillRegistry
 
@@ -26,6 +32,11 @@ _memory: MemoryEngine | None = None
 # Skill registry and executor — initialized at startup (Phase 4)
 _registry: SkillRegistry | None = None
 _executor: SkillExecutor | None = None
+
+# Scheduler and sentinel — initialized at startup (Phase 6)
+_scheduler: TalonScheduler | None = None
+_sentinel: FileSentinel | None = None
+_event_router: EventRouter | None = None
 
 
 def init_db(settings: object) -> None:
@@ -121,6 +132,55 @@ def get_memory() -> MemoryEngine:
     return _memory
 
 
-async def get_scheduler() -> None:
-    """Scheduler (Phase 6). Stub returns None."""
-    return None
+def init_scheduler(settings: TalonSettings) -> TalonScheduler:
+    """Initialize the scheduler and register built-in jobs."""
+    global _scheduler
+    if _memory is None or _gateway is None:
+        raise RuntimeError("Memory and gateway must be initialized before scheduler")
+
+    from app.scheduler.jobs import register_builtin_jobs
+
+    _scheduler = TalonScheduler()
+    register_builtin_jobs(
+        _scheduler,
+        memory=_memory,
+        gateway=_gateway,
+        working=_memory.working_store,
+        log_file=settings.log_file_path,
+    )
+    return _scheduler
+
+
+def init_sentinel(settings: TalonSettings) -> FileSentinel:
+    """Initialize the file sentinel and event router."""
+    global _sentinel, _event_router
+    if _memory is None or _registry is None:
+        raise RuntimeError("Memory and registry must be initialized before sentinel")
+
+    _event_router = EventRouter(
+        memory=_memory,
+        registry=_registry,
+        memories_dir=settings.memories_dir,
+        skills_dir=settings.skills_dir,
+        config_dir=settings.project_root / "config",
+    )
+    _event_router.bind_loop(asyncio.get_running_loop())
+    _sentinel = FileSentinel(_event_router)
+    _sentinel.start(
+        [settings.memories_dir, settings.skills_dir, settings.project_root / "config"]
+    )
+    return _sentinel
+
+
+def get_scheduler() -> TalonScheduler:
+    """Scheduler dependency."""
+    if _scheduler is None:
+        raise RuntimeError("Scheduler not initialized; call init_scheduler at startup")
+    return _scheduler
+
+
+def get_sentinel() -> FileSentinel:
+    """File sentinel dependency."""
+    if _sentinel is None:
+        raise RuntimeError("Sentinel not initialized; call init_sentinel at startup")
+    return _sentinel

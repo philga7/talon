@@ -14,6 +14,7 @@ os.environ.setdefault("DB_PASSWORD", "test")
 from app.core.config import get_settings  # noqa: E402
 from app.dependencies import (  # noqa: E402
     get_gateway,
+    get_scheduler,
     init_db,
     init_gateway,
     init_memory,
@@ -58,6 +59,24 @@ class FakeGateway:
         ]
 
 
+class FakeScheduler:
+    """Minimal fake scheduler for tests."""
+
+    @property
+    def running(self) -> bool:
+        return True
+
+    @property
+    def job_count(self) -> int:
+        return 0
+
+    def list_jobs(self) -> list[dict[str, Any]]:
+        return []
+
+    def trigger_job(self, _job_id: str) -> bool:
+        return False
+
+
 @pytest.fixture
 def mock_gateway() -> Generator[FakeGateway, None, None]:
     """Mocked LLM gateway for tests (no real provider calls)."""
@@ -70,8 +89,20 @@ def mock_gateway() -> Generator[FakeGateway, None, None]:
 
 
 @pytest.fixture
+def mock_scheduler() -> Generator[FakeScheduler, None, None]:
+    """Mocked scheduler for tests (no real APScheduler)."""
+    sched = FakeScheduler()
+    app.dependency_overrides[get_scheduler] = lambda: sched
+    try:
+        yield sched
+    finally:
+        app.dependency_overrides.pop(get_scheduler, None)
+
+
+@pytest.fixture
 async def client(
     mock_gateway: FakeGateway,
+    mock_scheduler: FakeScheduler,
     _ensure_app_initialized: None,
 ) -> AsyncGenerator[AsyncClient, None]:
     """Async HTTP client for API tests."""
