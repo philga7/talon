@@ -1,0 +1,9 @@
+[skill]
+name = "weather_enhanced"
+version = "1.0.0"
+description = "Current and forecast weather for any location via WeatherAPI"
+enabled = true
+
+[skill.permissions]
+network = true
+filesystem = false

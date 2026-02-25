@@ -1,0 +1,9 @@
+[skill]
+name = "hostinger_email"
+version = "1.0.0"
+description = "Send emails via Hostinger SMTP"
+enabled = true
+
+[skill.permissions]
+network = true
+filesystem = false

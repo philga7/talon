@@ -8,6 +8,7 @@ from collections.abc import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import TalonSettings
+from app.integrations.manager import IntegrationManager
 from app.llm.gateway import LLMGateway, create_gateway
 from app.memory.compressor import MemoryCompressor
 from app.memory.engine import MemoryEngine
@@ -37,6 +38,9 @@ _executor: SkillExecutor | None = None
 _scheduler: TalonScheduler | None = None
 _sentinel: FileSentinel | None = None
 _event_router: EventRouter | None = None
+
+# Integration manager — initialized at startup (Phase 7)
+_integration_manager: IntegrationManager | None = None
 
 
 def init_db(settings: object) -> None:
@@ -184,3 +188,40 @@ def get_sentinel() -> FileSentinel:
     if _sentinel is None:
         raise RuntimeError("Sentinel not initialized; call init_sentinel at startup")
     return _sentinel
+
+
+async def init_integrations(settings: TalonSettings) -> IntegrationManager:
+    """Initialize and start all configured integrations (Phase 7)."""
+    global _integration_manager
+    if _gateway is None or _memory is None or _registry is None or _executor is None:
+        raise RuntimeError("Gateway, memory, registry, executor must be initialized first")
+
+    from app.integrations.discord import DiscordIntegration
+    from app.integrations.manager import make_chat_callback
+    from app.integrations.slack import SlackIntegration
+    from app.integrations.webhook import WebhookIntegration, set_webhook_chat_callback
+
+    chat_callback = await make_chat_callback(
+        get_db_session=get_db(),
+        gateway=_gateway,
+        memory=_memory,
+        registry=_registry,
+        executor=_executor,
+    )
+
+    _integration_manager = IntegrationManager()
+    _integration_manager.register(DiscordIntegration(chat_callback=chat_callback))
+    _integration_manager.register(SlackIntegration(chat_callback=chat_callback))
+    _integration_manager.register(WebhookIntegration())
+
+    set_webhook_chat_callback(chat_callback)
+
+    await _integration_manager.start_all()
+    return _integration_manager
+
+
+def get_integration_manager() -> IntegrationManager:
+    """Integration manager dependency."""
+    if _integration_manager is None:
+        raise RuntimeError("Integration manager not initialized")
+    return _integration_manager
