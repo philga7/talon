@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: phase-5
     content: "Phase 5: Frontend MVP -- Vite + React + TypeScript, TailwindCSS + daisyUI, chat components, useSSE hook, Zustand store, API client, health dashboard"
-    status: pending
+    status: completed
   - id: phase-6
     content: "Phase 6: Scheduler + Sentinel -- TalonScheduler, built-in jobs, FileSentinel, EventRouter, hot-reload, scheduler API"
     status: pending
