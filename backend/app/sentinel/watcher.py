@@ -32,8 +32,8 @@ class _DebouncedHandler(FileSystemEventHandler):
             return
         src = str(event.src_path)
         now = time.monotonic()
-        last = self._last_event.get(src, 0.0)
-        if now - last < self._debounce:
+        last = self._last_event.get(src)
+        if last is not None and now - last < self._debounce:
             return
         self._last_event[src] = now
         self._router.dispatch(event.event_type, src)
