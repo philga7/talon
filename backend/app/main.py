@@ -8,12 +8,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.chat import router as chat_router
 from app.api.health import router as health_router
 from app.api.memory import router as memory_router
+from app.api.scheduler import router as scheduler_router
 from app.api.skills import router as skills_router
 from app.api.sse import router as sse_router
 from app.core.config import TalonSettings, get_settings, init_settings
 from app.core.logging import configure_logging
 from app.core.middleware import CorrelationIDMiddleware, RateLimitMiddleware
-from app.dependencies import init_db, init_gateway, init_memory, init_registry, load_registry_skills
+from app.dependencies import (
+    init_db,
+    init_gateway,
+    init_memory,
+    init_registry,
+    init_scheduler,
+    init_sentinel,
+    load_registry_skills,
+)
 
 
 @asynccontextmanager
@@ -29,9 +38,16 @@ async def lifespan(app: FastAPI):
     init_memory(settings)
     init_registry(settings)
     await load_registry_skills()
+
+    scheduler = init_scheduler(settings)
+    scheduler.start()
+
+    sentinel = init_sentinel(settings)
+
     yield
-    # Shutdown: close DB connections, etc.
-    # SQLAlchemy engine cleanup happens when app is destroyed
+
+    sentinel.stop()
+    scheduler.shutdown()
 
 
 def create_app() -> FastAPI:
@@ -64,6 +80,7 @@ def create_app() -> FastAPI:
     app.include_router(chat_router)
     app.include_router(skills_router)
     app.include_router(sse_router)
+    app.include_router(scheduler_router)
 
     return app
 

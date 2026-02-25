@@ -194,5 +194,6 @@ make dev   # starts backend (port 8088) + frontend (port 5173) concurrently
 - Chat: `curl -X POST http://localhost:8088/api/chat -H 'Content-Type: application/json' -d '{"message":"What is AAPL stock price?","session_id":"test"}'`
 - SSE stream: `curl 'http://localhost:8088/api/sse/test-session?prompt=hello'`
 - Skills: `curl http://localhost:8088/api/skills | jq`
+- Scheduler: `curl http://localhost:8088/api/scheduler/jobs | jq`
 - Backend tests: `make test`
 - Frontend tests: `make test-frontend`
