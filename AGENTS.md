@@ -15,6 +15,7 @@ purpose-built for one operator.
 
 Core responsibilities:
 - Route chat messages through a resilient multi-provider LLM gateway
+- Resolve persona identity layers per request/channel via `config/personas.yaml`
 - Maintain a three-tier memory system (core matrix, episodic, working)
 - Execute skills (tools) via a dynamic hot-reload registry
 - Serve a real-time web UI over SSE
@@ -31,7 +32,7 @@ Core responsibilities:
 | LLM routing | LiteLLM | Circuit breaker + fallback chain |
 | Database | PostgreSQL 16 + pgvector | Docker container, `asyncpg` driver |
 | ORM / migrations | SQLAlchemy 2 (async) + Alembic | All models in `backend/app/models/` |
-| Memory | Three-tier engine (core, episodic, working) | Markdown → core matrix JSON (`data/memories` → `data/core_matrix.json`), episodic pgvector store (`episodic_memory`), working session dict; introspection via `/api/memory` and `health.memory` |
+| Memory | Three-tier engine (core, episodic, working) | Persona-scoped Markdown memories (`data/memories/<persona>/`) → cached core matrices, shared episodic pgvector store (`episodic_memory`, persona-filtered), working session dict; introspection via `/api/memory` and `health.memory` |
 | Scheduler | APScheduler (AsyncIOScheduler) | Jobs persist in PostgreSQL |
 | File watching | watchdog | Hot-reload for skills + config |
 | Frontend | React 18 + Vite + TypeScript | `frontend/` directory |
@@ -82,6 +83,7 @@ Core responsibilities:
 ├── config/
 │   ├── talon.toml               Main config (chmod 600)
 │   ├── providers.yaml           LLM provider definitions
+│   ├── personas.yaml            Persona definitions + channel bindings
 │   └── secrets/                 Secrets directory (chmod 700, files chmod 600)
 ├── scripts/                     Migration + utility scripts
 ├── deploy/                      systemd unit, nginx config, Dockerfile
@@ -163,6 +165,7 @@ All provider config lives in `config/providers.yaml`.
 - PostgreSQL is accessed **only** via SQLAlchemy async sessions.
 - The frontend is a **pure static build** served by nginx.
 - All chat, regardless of platform, routes through `ChatRouter`.
+- Persona resolution defaults to `main` when channel binding or `persona_id` is missing/unknown.
 - Integrations (Discord, Slack, webhook) start conditionally based on secrets.
   Missing secrets = silently skipped; no crash, no error.
 

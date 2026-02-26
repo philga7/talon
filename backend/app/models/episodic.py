@@ -25,6 +25,7 @@ class EpisodicMemory(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     embedding: Mapped[Any] = mapped_column(Vector(1536), nullable=True)
     source: Mapped[str] = mapped_column(String(64), default="chat", nullable=False)
+    persona_id: Mapped[str] = mapped_column(String(64), default="main", nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

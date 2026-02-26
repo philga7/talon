@@ -33,6 +33,7 @@ class EpisodicStore:
         user_msg: str,
         assistant_msg: str,
         source: str = "chat",
+        persona_id: str = "main",
     ) -> None:
         """Insert user and assistant entries; optionally schedule async embedding."""
         for role, content in [("user", user_msg), ("assistant", assistant_msg)]:
@@ -42,6 +43,7 @@ class EpisodicStore:
                 content=content,
                 embedding=None,
                 source=source,
+                persona_id=persona_id,
             )
             db.add(entry)
         await db.flush()
@@ -54,12 +56,14 @@ class EpisodicStore:
         query: str,
         k: int | None = None,
         query_embedding: list[float] | None = None,
+        persona_id: str = "main",
     ) -> list[EpisodicMemory]:
         """Return top-k entries: by cosine similarity if embedding provided, else by recency."""
         limit = k if k is not None else self._top_k
         stmt = (
             select(EpisodicMemory)
             .where(EpisodicMemory.session_id == session_id)
+            .where(EpisodicMemory.persona_id == persona_id)
             .where(EpisodicMemory.deleted_at.is_(None))
             .where(EpisodicMemory.archived_at.is_(None))
         )
@@ -77,7 +81,12 @@ class EpisodicStore:
             entries.reverse()
         return entries
 
-    async def count_active(self, db: AsyncSession, session_id: str | None = None) -> int:
+    async def count_active(
+        self,
+        db: AsyncSession,
+        session_id: str | None = None,
+        persona_id: str | None = None,
+    ) -> int:
         """Count non-deleted, non-archived entries; optionally for one session."""
         from sqlalchemy import func
 
@@ -88,5 +97,7 @@ class EpisodicStore:
         )
         if session_id is not None:
             stmt = stmt.where(EpisodicMemory.session_id == session_id)
+        if persona_id is not None:
+            stmt = stmt.where(EpisodicMemory.persona_id == persona_id)
         result = await db.execute(stmt)
         return result.scalar() or 0

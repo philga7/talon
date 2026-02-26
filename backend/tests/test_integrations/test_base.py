@@ -1,4 +1,5 @@
 """Tests for BaseIntegration and IntegrationManager."""
+# pyright: reportPrivateUsage=false
 
 import pytest
 from app.integrations.base import BaseIntegration, IntegrationStatus

@@ -33,6 +33,7 @@ class LLMRequest(BaseModel):
 
     messages: list[ChatMessage]
     tools: list[dict[str, Any]] | None = None
+    model_override: str | None = None
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int | None = Field(default=None, ge=1)
 

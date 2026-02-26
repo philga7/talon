@@ -1,4 +1,5 @@
 """Webhook integration tests."""
+# pyright: reportUnknownLambdaType=false
 
 import os
 import sys

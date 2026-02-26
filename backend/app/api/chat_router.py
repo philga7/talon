@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,10 +35,16 @@ async def build_messages(
     user_message: str,
     db: AsyncSession,
     memory: MemoryEngine,
+    persona_id: str = "main",
+    persona_memories_dir: Path | None = None,
 ) -> list[ChatMessage]:
     """Build initial messages: system (from memory) + user."""
     system_content = await memory.build_system_prompt(
-        db, session_id=session_id, current_message=user_message
+        db,
+        session_id=session_id,
+        current_message=user_message,
+        persona_id=persona_id,
+        persona_memories_dir=persona_memories_dir,
     )
     messages: list[ChatMessage] = []
     if system_content:
@@ -51,11 +58,13 @@ async def run_tool_loop(
     gateway: LLMGateway,
     registry: SkillRegistry,
     executor: SkillExecutor,
+    model_override: str | None = None,
 ) -> LLMResponse:
     """Run complete() in a loop until no tool_calls; return final response."""
     request = LLMRequest(
         messages=messages,
         tools=registry.tools_for_llm() or None,
+        model_override=model_override,
     )
     response: LLMResponse = await gateway.complete(request)
     iteration = 0
@@ -111,6 +120,7 @@ async def save_turn(
     user_message: str,
     assistant_message: str,
     memory: MemoryEngine,
+    persona_id: str = "main",
 ) -> None:
     """Persist user and assistant turn to episodic store."""
     await memory.episodic_store.save_turn(
@@ -119,4 +129,5 @@ async def save_turn(
         user_msg=user_message,
         assistant_msg=assistant_message,
         source="chat",
+        persona_id=persona_id,
     )

@@ -1,4 +1,5 @@
 """FileSentinel watcher tests — lifecycle and debouncing."""
+# pyright: reportPrivateUsage=false
 
 from pathlib import Path
 from unittest.mock import MagicMock

@@ -2,9 +2,10 @@
 
 Self-hosted personal AI gateway for a single operator. Licensed under [AGPL v3](LICENSE). Inspired by OpenClaw (Node.js/TypeScript). Python/TypeScript stack on a single Hostinger VPS.
 
-**Status: Phases 1–8 complete.** Foundation, LLM gateway, three-tier memory, Skills + Chat Router, Frontend MVP, Scheduler + Sentinel, Integrations + remaining skills, and **CLI + Onboarding** are implemented. The `talon` CLI provides `onboard` (setup wizard), `doctor` (diagnostics), `config` (inspection), and `status` (unified health view).
+**Status: Phases 1–8 complete, including multi-persona support.** Foundation, LLM gateway, three-tier memory, Skills + Chat Router, Frontend MVP, Scheduler + Sentinel, Integrations + persona-aware routing, and **CLI + Onboarding** are implemented. The `talon` CLI provides `onboard` (setup wizard), `doctor` (diagnostics), `config` (inspection), and `status` (unified health view).
 
 - **Stack:** FastAPI, PostgreSQL+pgvector, React+Vite+TypeScript, TailwindCSS v4+daisyUI v5, SSE streaming, LiteLLM, Zustand, APScheduler, watchdog, discord.py, slack_bolt, Typer+Rich CLI
+- **Personas:** Config-driven identity layers via `config/personas.yaml` (default `main`, optional channel-bound personas like `analyst`)
 - **Docs:** See [AGENTS.md](AGENTS.md) for full spec and [`.cursor/plans/`](.cursor/plans/) for phased implementation roadmap
 - **CI:** GitHub Actions runs backend lint (ruff, pyright) + tests, and frontend lint (ESLint) + type-check (tsc) + tests (Vitest) + build on all PRs.
 
@@ -78,11 +79,13 @@ curl http://localhost:8088/api/health | jq
 curl http://localhost:8088/api/memory | jq
 curl http://localhost:8088/api/skills | jq
 curl http://localhost:8088/api/scheduler/jobs | jq
-curl -X POST http://localhost:8088/api/chat -H 'Content-Type: application/json' -d '{"message":"What is AAPL stock price?","session_id":"test"}'
-curl 'http://localhost:8088/api/sse/test-session?prompt=hello'
+curl -X POST http://localhost:8088/api/chat -H 'Content-Type: application/json' -d '{"message":"What is AAPL stock price?","session_id":"test","persona_id":"main"}'
+curl 'http://localhost:8088/api/sse/test-session?prompt=hello&persona_id=main'
 curl -X POST http://localhost:8088/api/scheduler/jobs/{job_id}/trigger
-curl -X POST http://localhost:8088/api/integrations/webhook -H 'Content-Type: application/json' -d '{"message":"hello","session_id":"webhook-test"}'
+curl -X POST http://localhost:8088/api/integrations/webhook -H 'Content-Type: application/json' -d '{"message":"hello","session_id":"webhook-test","persona_id":"main"}'
 ```
+
+`/api/chat`, `/api/sse`, and webhook payloads accept optional `persona_id` (defaults to `main`).
 
 Interactive API docs when the server is running: `http://localhost:8088/docs`.
 

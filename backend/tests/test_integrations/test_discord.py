@@ -1,4 +1,5 @@
 """Discord integration tests (no real Discord connection)."""
+# pyright: reportPrivateUsage=false, reportUnknownLambdaType=false
 
 from unittest.mock import AsyncMock, patch
 

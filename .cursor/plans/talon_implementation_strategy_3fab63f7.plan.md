@@ -21,7 +21,7 @@ todos:
     content: "Phase 6: Scheduler + Sentinel -- TalonScheduler, built-in jobs, FileSentinel, EventRouter, hot-reload, scheduler API"
     status: completed
   - id: phase-7
-    content: "Phase 7: Integrations + Remaining Skills -- Discord, Slack, webhook receiver, weather/email/news skills ported"
+    content: "Phase 7: Integrations + Personas + Remaining Skills -- Discord, Slack, webhook receiver, multi-persona support (PersonaRegistry, persona-scoped memory, channel-binding resolution), weather/email/news skills ported"
     status: pending
   - id: phase-8
     content: "Phase 8: CLI + Onboarding -- typer CLI, talon onboard wizard, talon doctor, talon config, talon status, WizardPrompter, first-time setup flow"
@@ -238,7 +238,7 @@ curl http://localhost:8088/api/scheduler/jobs | jq  # shows all registered jobs
 
 ---
 
-## Phase 7: Integrations + Remaining Skills
+## Phase 7: Integrations + Personas + Remaining Skills
 
 **Goal:** All platforms connected (Discord, Slack, webhooks). All OpenClaw skills ported.
 
@@ -248,6 +248,11 @@ curl http://localhost:8088/api/scheduler/jobs | jq  # shows all registered jobs
 - `DiscordIntegration` via `discord.py` (`[backend/app/integrations/discord.py](backend/app/integrations/discord.py)`)
 - `SlackIntegration` via `slack_bolt` Socket Mode (`[backend/app/integrations/slack.py](backend/app/integrations/slack.py)`)
 - Generic webhook receiver (`[backend/app/integrations/webhook.py](backend/app/integrations/webhook.py)`)
+- `config/personas.yaml` with `main` + `analyst` personas
+- `PersonaRegistry` with channel-binding resolution + safe fallback to `main`
+- Persona-scoped episodic memory (`persona_id` column + index) and per-persona core matrix cache
+- `model_override` support in LLM gateway requests
+- Persona resolution wired into Discord, Slack, webhook, web UI, SSE, and sentinel memory recompilation
 - Remaining skills ported: `weather_enhanced`, `hostinger_email`, `news_sentinel`
 - Integration startup/shutdown wired into lifespan (conditional on config/secrets availability)
 - Tests: integration message routing through ChatRouter (mocked platform clients)

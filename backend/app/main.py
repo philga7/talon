@@ -19,6 +19,7 @@ from app.dependencies import (
     init_gateway,
     init_integrations,
     init_memory,
+    init_persona_registry,
     init_registry,
     init_scheduler,
     init_sentinel,
@@ -37,6 +38,7 @@ async def lifespan(app: FastAPI):
     )
     init_db(settings)
     init_gateway(settings)
+    personas = init_persona_registry(settings)
     init_memory(settings)
     init_registry(settings)
     await load_registry_skills()
@@ -44,9 +46,9 @@ async def lifespan(app: FastAPI):
     scheduler = init_scheduler(settings)
     scheduler.start()
 
-    sentinel = init_sentinel(settings)
+    sentinel = init_sentinel(settings, personas)
 
-    integration_mgr = await init_integrations(settings)
+    integration_mgr = await init_integrations(settings, personas)
 
     yield
 

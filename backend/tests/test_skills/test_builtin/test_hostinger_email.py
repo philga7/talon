@@ -1,4 +1,5 @@
 """Hostinger email skill tests."""
+# pyright: reportPrivateUsage=false, reportOptionalSubscript=false
 
 import json
 import sys

@@ -75,6 +75,7 @@ def _settings_to_dict(settings: TalonSettings) -> dict[str, Any]:
     result["project_root"] = str(settings.project_root)
     result["log_file_path"] = str(settings.log_file_path)
     result["memories_dir"] = str(settings.memories_dir)
+    result["personas_config_path"] = str(settings.personas_config_path)
     result["skills_dir"] = str(settings.skills_dir)
     result["db_url_async"] = "***REDACTED***"
     result["db_url_sync"] = "***REDACTED***"

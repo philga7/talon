@@ -7,6 +7,7 @@ import subprocess
 from dataclasses import dataclass, field
 
 import structlog
+import yaml  # type: ignore[reportMissingModuleSource]
 
 from app.core.config import get_settings
 
@@ -326,8 +327,6 @@ def check_providers_config() -> CheckResult:
             message="providers.yaml not found",
         )
     try:
-        import yaml
-
         data = yaml.safe_load(providers_path.read_text())
         providers = data.get("providers", []) if isinstance(data, dict) else []
         if not providers:
@@ -351,7 +350,7 @@ def check_providers_config() -> CheckResult:
 
 
 def check_memories_dir() -> CheckResult:
-    """Verify data/memories/ exists and has at least one .md file."""
+    """Verify data/memories/ has persona subdirs with markdown files."""
     settings = get_settings()
     mem_dir = settings.memories_dir
     if not mem_dir.is_dir():
@@ -360,17 +359,70 @@ def check_memories_dir() -> CheckResult:
             passed=False,
             message="data/memories/ directory does not exist",
         )
-    md_files = list(mem_dir.glob("*.md"))
-    if not md_files:
+    persona_dirs = [d for d in mem_dir.iterdir() if d.is_dir()]
+    md_files = list(mem_dir.glob("**/*.md"))
+    if not persona_dirs or not md_files:
         return CheckResult(
             name="memories_dir",
             passed=False,
-            message="No .md files in data/memories/",
+            message="No persona memory markdown files in data/memories/",
         )
     return CheckResult(
         name="memories_dir",
         passed=True,
-        message=f"{len(md_files)} memory source file(s) found",
+        message=f"{len(md_files)} memory source file(s) found across {len(persona_dirs)} persona dir(s)",
+    )
+
+
+def check_personas_config() -> CheckResult:
+    """Verify config/personas.yaml is valid and references populated memory dirs."""
+    settings = get_settings()
+    path = settings.personas_config_path
+    if not path.is_file():
+        return CheckResult(
+            name="personas_config",
+            passed=False,
+            message="personas.yaml not found",
+            detail=str(path),
+        )
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        return CheckResult(
+            name="personas_config",
+            passed=False,
+            message=f"Failed to parse personas.yaml: {exc}",
+        )
+
+    personas = data.get("personas", {}) if isinstance(data, dict) else {}
+    if not isinstance(personas, dict) or "main" not in personas:
+        return CheckResult(
+            name="personas_config",
+            passed=False,
+            message='personas.yaml must define a "main" persona',
+        )
+
+    missing_memories: list[str] = []
+    for persona_id, cfg in personas.items():
+        if not isinstance(cfg, dict):
+            missing_memories.append(str(persona_id))
+            continue
+        mem_dir_raw = str(cfg.get("memories_dir", f"data/memories/{persona_id}"))
+        mem_dir = (settings.project_root / mem_dir_raw).resolve()
+        if not mem_dir.is_dir() or not list(mem_dir.glob("*.md")):
+            missing_memories.append(str(persona_id))
+
+    if missing_memories:
+        return CheckResult(
+            name="personas_config",
+            passed=False,
+            message=f"Personas missing memory markdown: {', '.join(sorted(missing_memories))}",
+        )
+
+    return CheckResult(
+        name="personas_config",
+        passed=True,
+        message=f"personas.yaml valid ({len(personas)} persona(s))",
     )
 
 
@@ -380,6 +432,7 @@ ALL_CHECKS = [
     check_required_secrets,
     check_providers_config,
     check_memories_dir,
+    check_personas_config,
     check_db_connectivity,
     check_docker_services,
     check_systemd_status,

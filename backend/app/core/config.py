@@ -80,6 +80,11 @@ class TalonSettings(BaseSettings):
         return self.project_root / "data" / "core_matrix.json"
 
     @property
+    def personas_config_path(self) -> Path:
+        """Path to persona definitions."""
+        return self.project_root / "config" / "personas.yaml"
+
+    @property
     def skills_dir(self) -> Path:
         """Directory containing skill subdirectories (skill.toml + main.py)."""
         return self.project_root / "backend" / "skills"

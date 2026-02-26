@@ -19,6 +19,7 @@ from app.dependencies import (  # noqa: E402
     init_db,
     init_gateway,
     init_memory,
+    init_persona_registry,
     init_registry,
 )
 from app.integrations.base import IntegrationStatus  # noqa: E402
@@ -32,6 +33,7 @@ def _ensure_app_initialized() -> None:  # pyright: ignore[reportUnusedFunction]
     settings = get_settings()
     init_db(settings)
     init_gateway(settings)
+    init_persona_registry(settings)
     init_memory(settings)
     init_registry(settings)
 

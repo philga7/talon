@@ -1,4 +1,5 @@
 """Slack integration tests (no real Slack connection)."""
+# pyright: reportPrivateUsage=false, reportUnknownLambdaType=false
 
 from unittest.mock import AsyncMock, patch
 
@@ -43,7 +44,12 @@ async def test_handle_slack_message_routes_through_callback() -> None:
     say = AsyncMock()
     event = {"text": "hello bot", "channel": "C123", "user": "U456"}
     await _handle_slack_message(event, say, callback)
-    callback.assert_awaited_once_with(session_id="slack_C123", message="hello bot", source="slack")
+    callback.assert_awaited_once_with(
+        session_id="slack_C123",
+        message="hello bot",
+        source="slack",
+        persona_id="main",
+    )
     say.assert_awaited_once_with("bot reply")
 
 

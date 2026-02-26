@@ -11,6 +11,7 @@ from app.cli.doctor import (
     check_disk_space,
     check_log_writability,
     check_memories_dir,
+    check_personas_config,
     check_providers_config,
     check_required_secrets,
     check_secrets_dir,
@@ -191,11 +192,11 @@ class TestCheckProvidersConfig:
 
 class TestCheckMemoriesDir:
     def test_passes_with_md_files(self, tmp_path: Path) -> None:
-        mem_dir = tmp_path / "memories"
-        mem_dir.mkdir()
+        mem_dir = tmp_path / "memories" / "main"
+        mem_dir.mkdir(parents=True)
         (mem_dir / "identity.md").write_text("# Identity\n")
         with patch("app.cli.doctor.get_settings") as mock_settings:
-            mock_settings.return_value.memories_dir = mem_dir
+            mock_settings.return_value.memories_dir = tmp_path / "memories"
             result = check_memories_dir()
         assert result.passed is True
 
@@ -225,3 +226,34 @@ class TestRunDoctor:
         report = run_doctor(checks=[crasher])  # type: ignore[arg-type]
         assert report.failed == 1
         assert "crashed" in report.checks[0].message.lower()
+
+
+class TestCheckPersonasConfig:
+    def test_passes_with_valid_personas_yaml(self, tmp_path: Path) -> None:
+        memories_main = tmp_path / "data" / "memories" / "main"
+        memories_main.mkdir(parents=True)
+        (memories_main / "identity.md").write_text("# Identity\n")
+        personas = tmp_path / "config" / "personas.yaml"
+        personas.parent.mkdir(parents=True)
+        personas.write_text(
+            "personas:\n"
+            "  main:\n"
+            "    memories_dir: data/memories/main\n"
+            "    model_override: null\n"
+            "    channel_bindings: []\n"
+        )
+        with patch("app.cli.doctor.get_settings") as mock_settings:
+            mock_settings.return_value.personas_config_path = personas
+            mock_settings.return_value.project_root = tmp_path
+            result = check_personas_config()
+        assert result.passed is True
+
+    def test_fails_without_main_persona(self, tmp_path: Path) -> None:
+        personas = tmp_path / "config" / "personas.yaml"
+        personas.parent.mkdir(parents=True)
+        personas.write_text("personas: {}\n")
+        with patch("app.cli.doctor.get_settings") as mock_settings:
+            mock_settings.return_value.personas_config_path = personas
+            mock_settings.return_value.project_root = tmp_path
+            result = check_personas_config()
+        assert result.passed is False
