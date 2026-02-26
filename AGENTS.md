@@ -39,6 +39,7 @@ Core responsibilities:
 | Realtime | Server-Sent Events (SSE) | `/api/sse/{session_id}` |
 | Integrations | Discord (discord.py), Slack (slack_bolt Socket Mode), Webhook | Conditional on secrets; routes through `ChatRouter` |
 | Logging | structlog (JSON lines) | `data/logs/talon.jsonl` |
+| CLI | Typer + Rich | `talon` command: onboard, doctor, config, status |
 | Deployment | systemd (`talon.service`) + Docker Compose | Auxiliary services only in Docker |
 | Secrets | Pydantic `BaseSettings` with `secrets_dir` | `config/secrets/` chmod 700/600 |
 
@@ -60,6 +61,7 @@ Core responsibilities:
 │   │   ├── integrations/        Discord, Slack, webhook, manager
 │   │   ├── scheduler/           APScheduler engine + built-in jobs
 │   │   ├── sentinel/            watchdog watcher + directory tree
+│   │   ├── cli/                 Typer CLI: onboard, doctor, config, status
 │   │   └── core/                Config, logging, middleware, security, errors
 │   ├── skills/                  User skill directories (hot-loaded)
 │   ├── tests/
@@ -200,3 +202,4 @@ make dev   # starts backend (port 8088) + frontend (port 5173) concurrently
 - Scheduler: `curl http://localhost:8088/api/scheduler/jobs | jq`
 - Backend tests: `make test`
 - Frontend tests: `make test-frontend`
+- CLI: `talon onboard`, `talon doctor`, `talon status`, `talon config show`

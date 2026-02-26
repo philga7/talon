@@ -2,9 +2,9 @@
 
 Self-hosted personal AI gateway for a single operator. Licensed under [AGPL v3](LICENSE). Inspired by OpenClaw (Node.js/TypeScript). Python/TypeScript stack on a single Hostinger VPS.
 
-**Status: Phases 1–7 complete.** Foundation, LLM gateway, three-tier memory, Skills + Chat Router, Frontend MVP, Scheduler + Sentinel, and **Integrations + remaining skills** are implemented. Discord, Slack (Socket Mode), and webhook integrations route messages through the unified ChatRouter. Skills now include `searxng_search`, `yahoo_finance`, `weather_enhanced`, and `hostinger_email`.
+**Status: Phases 1–8 complete.** Foundation, LLM gateway, three-tier memory, Skills + Chat Router, Frontend MVP, Scheduler + Sentinel, Integrations + remaining skills, and **CLI + Onboarding** are implemented. The `talon` CLI provides `onboard` (setup wizard), `doctor` (diagnostics), `config` (inspection), and `status` (unified health view).
 
-- **Stack:** FastAPI, PostgreSQL+pgvector, React+Vite+TypeScript, TailwindCSS v4+daisyUI v5, SSE streaming, LiteLLM, Zustand, APScheduler, watchdog, discord.py, slack_bolt
+- **Stack:** FastAPI, PostgreSQL+pgvector, React+Vite+TypeScript, TailwindCSS v4+daisyUI v5, SSE streaming, LiteLLM, Zustand, APScheduler, watchdog, discord.py, slack_bolt, Typer+Rich CLI
 - **Docs:** See [AGENTS.md](AGENTS.md) for full spec and [`.cursor/plans/`](.cursor/plans/) for phased implementation roadmap
 - **CI:** GitHub Actions runs backend lint (ruff, pyright) + tests, and frontend lint (ESLint) + type-check (tsc) + tests (Vitest) + build on all PRs.
 
@@ -72,6 +72,19 @@ Still open the UI at **http://localhost:5173**.
 | POST | `/api/integrations/webhook` | Generic webhook receiver (routes through ChatRouter) |
 
 Interactive API docs when the server is running: `http://localhost:8088/docs`.
+
+### CLI Commands
+
+After `pip install -e .` in `backend/`, the `talon` CLI is available:
+
+| Command | Description |
+|---------|-------------|
+| `talon onboard` | Interactive first-time setup wizard (QuickStart/Advanced) |
+| `talon doctor` | Diagnostic validator: config, secrets, DB, Docker, systemd, disk |
+| `talon status` | Unified status: API health, Docker, systemd, disk space |
+| `talon config show` | Display all config values (secrets redacted) |
+| `talon config get <key>` | Get a single config value |
+| `talon config validate` | Validate config parses without errors |
 
 ### Integrations (Discord, Slack, Webhook)
 
