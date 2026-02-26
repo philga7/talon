@@ -22,7 +22,10 @@ todos:
     status: completed
   - id: phase-7
     content: "Phase 7: Integrations + Personas + Remaining Skills -- Discord, Slack, webhook receiver, multi-persona support (PersonaRegistry, persona-scoped memory, channel-binding resolution), weather/email/news skills ported"
-    status: pending
+    status: completed
+  - id: phase-7-personas
+    content: "Phase 7 multi-persona support — PersonaRegistry, persona-scoped memory, channel-binding, CLI retrofit (completed in codebase)"
+    status: completed
   - id: phase-8
     content: "Phase 8: CLI + Onboarding -- typer CLI, talon onboard wizard, talon doctor, talon config, talon status, WizardPrompter, first-time setup flow"
     status: completed
@@ -240,7 +243,9 @@ curl http://localhost:8088/api/scheduler/jobs | jq  # shows all registered jobs
 
 ## Phase 7: Integrations + Personas + Remaining Skills
 
-**Goal:** All platforms connected (Discord, Slack, webhooks). All OpenClaw skills ported.
+**Multi-persona support:** ✅ **Completed** (in codebase). PersonaRegistry, persona-scoped memory, channel-binding resolution, CLI retrofit, and data layout are implemented per [Multi-Persona Support plan](.cursor/plans/multi-persona_support_9d17f6c4.plan.md).
+
+**Goal:** All platforms connected (Discord, Slack, webhooks). Multi-persona support as identity layers (shared skills, shared episodic table with persona-scoped queries, distinct core matrices). All OpenClaw skills ported.
 
 **Delivers:**
 
@@ -248,14 +253,33 @@ curl http://localhost:8088/api/scheduler/jobs | jq  # shows all registered jobs
 - `DiscordIntegration` via `discord.py` (`[backend/app/integrations/discord.py](backend/app/integrations/discord.py)`)
 - `SlackIntegration` via `slack_bolt` Socket Mode (`[backend/app/integrations/slack.py](backend/app/integrations/slack.py)`)
 - Generic webhook receiver (`[backend/app/integrations/webhook.py](backend/app/integrations/webhook.py)`)
-- `config/personas.yaml` with `main` + `analyst` personas
-- `PersonaRegistry` with channel-binding resolution + safe fallback to `main`
-- Persona-scoped episodic memory (`persona_id` column + index) and per-persona core matrix cache
-- `model_override` support in LLM gateway requests
-- Persona resolution wired into Discord, Slack, webhook, web UI, SSE, and sentinel memory recompilation
+- **Multi-persona support** (see [Multi-Persona Support plan](.cursor/plans/multi-persona_support_9d17f6c4.plan.md)):
+  - `config/personas.yaml` with `main` + `analyst` personas and `channel_bindings`
+  - `PersonaRegistry` (`backend/app/personas/registry.py`): `resolve(platform, channel_id)`, `get(persona_id)`, `all_personas()`; safe fallback to `main`
+  - Persona-scoped episodic memory: `persona_id` column + index; `EpisodicStore.save_turn()` / `retrieve_relevant()` accept `persona_id`
+  - Per-persona core matrix cache in `MemoryEngine`; `recompile_persona(persona_id, memories_dir)` and `invalidate_cache(persona_id)`
+  - `model_override` on `LLMRequest` applied in `LLMGateway._call_provider` / `_stream_from_provider`
+  - Persona resolution wired into Discord, Slack, webhook, web UI (`ChatRequest.persona_id`), SSE (`persona_id` query param), and sentinel (persona-aware memory recompilation via `EventRouter`)
+  - Data layout: `data/memories/main/` (moved from `data/memories/*.md`), `data/memories/analyst/` for second persona
 - Remaining skills ported: `weather_enhanced`, `hostinger_email`, `news_sentinel`
 - Integration startup/shutdown wired into lifespan (conditional on config/secrets availability)
-- Tests: integration message routing through ChatRouter (mocked platform clients)
+- Tests: integration message routing through ChatRouter (mocked platform clients); persona resolution, episodic scoped by persona, fallback to main; CLI doctor/onboard for persona paths
+
+**Multi-persona implementation order** (process from [Multi-Persona Support](.cursor/plans/multi-persona_support_9d17f6c4.plan.md)):
+
+1. Alembic migration + ORM model — add `persona_id` to `episodic_memory`
+2. PersonaRegistry + `config/personas.yaml` — resolution logic
+3. MemoryEngine refactor — per-persona matrix cache, `build_system_prompt(persona)`, `recompile_persona` / `invalidate_cache`
+4. EpisodicStore — `persona_id` on `save_turn` / `retrieve_relevant` / `count_active`
+5. LLMRequest + Gateway `model_override` — no behavioral change when null
+6. ChatRouter + chat.py + sse.py — thread persona through web API path
+7. IntegrationManager + Slack + Discord — resolve persona at integration boundary, pass `persona_id` to chat callback
+8. Sentinel/EventRouter — persona-aware memory recompilation (extract `persona_id` from path, call `recompile_persona`)
+9. Data restructure — move `data/memories/*.md` → `data/memories/main/`, create `data/memories/analyst/`
+10. Dependencies + lifespan — `init_persona_registry`, pass registry to memory, sentinel, integrations
+11. Phase 8 CLI retrofit — doctor `check_memories_dir` for persona subdirs, new `check_personas_config`; onboard `_step_memory` bootstrap to `data/memories/main/`; config_cmd show `personas_config_path`
+12. Update existing tests + new persona tests (registry, episodic scoping, fallback, CLI)
+13. Plan file update — Phase 7 includes persona support (this document)
 
 **Verification on VPS:**
 
@@ -263,6 +287,7 @@ curl http://localhost:8088/api/scheduler/jobs | jq  # shows all registered jobs
 # Send a Discord DM to the bot -- get a response
 # Send a Slack message -- get a response
 # All skills appear in /api/skills
+# Persona resolution: channel binding returns correct persona; unknown falls back to main
 ```
 
 **Personas involved:** Backend Engineer, Skills Developer, QA
@@ -360,7 +385,7 @@ Phases 2 and 3 can theoretically be built in parallel since they depend only on 
 - Phase 4 (Skills + Chat): **Large** -- ties everything together, most integration surface
 - Phase 5 (Frontend): **Medium-Large** -- full React app from scratch
 - Phase 6 (Scheduler + Sentinel): **Small-Medium** -- clear scope, few unknowns
-- Phase 7 (Integrations): **Medium** -- Discord/Slack SDKs, skill porting
+- Phase 7 (Integrations + Personas): **Medium** -- Discord/Slack SDKs, skill porting; multi-persona follows the 13-step implementation order in Phase 7 (see [Multi-Persona Support](.cursor/plans/multi-persona_support_9d17f6c4.plan.md) for file-level detail)
 - Phase 8 (CLI + Onboarding): **Medium** -- typer/Rich glue over existing subsystems, wizard logic
 - Phase 9 (Hardening): **Medium-Large** -- testing, migration scripts, polish, plus 6 IronClaw security subsystems (`backend/app/security/` package)
 
