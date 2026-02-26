@@ -4,43 +4,43 @@ overview: Add multi-persona support to Talon as an extension to Phase 7. Persona
 todos:
   - id: migration
     content: "Alembic migration: add persona_id column to episodic_memory + update ORM model"
-    status: pending
+    status: completed
   - id: persona-registry
     content: Create backend/app/personas/registry.py (PersonaConfig, PersonaRegistry) + config/personas.yaml
-    status: pending
+    status: completed
   - id: memory-engine
     content: "Refactor MemoryEngine for multi-persona: per-persona matrix cache, persona param on build_system_prompt, invalidate_cache"
-    status: pending
+    status: completed
   - id: episodic-store
     content: Add persona_id to EpisodicStore.save_turn() and retrieve_relevant() with scoped queries
-    status: pending
+    status: completed
   - id: gateway-override
     content: Add model_override to LLMRequest and apply in LLMGateway._call_provider / _stream_from_provider
-    status: pending
+    status: completed
   - id: chat-api
     content: Thread persona through ChatRouter, chat.py (ChatRequest.persona_id), sse.py, chat_router.py
-    status: pending
+    status: completed
   - id: integrations
     content: Wire PersonaRegistry into SlackIntegration, DiscordIntegration, IntegrationManager chat callback
-    status: pending
+    status: completed
   - id: sentinel
     content: "Make EventRouter persona-aware: extract persona_id from path, call recompile_persona"
-    status: pending
+    status: completed
   - id: data-restructure
     content: Move data/memories/*.md to data/memories/main/, create data/memories/analyst/ with identity files
-    status: pending
+    status: completed
   - id: wiring
     content: Update dependencies.py (init_persona_registry, pass to init_memory/init_sentinel/init_integrations) and main.py lifespan
-    status: pending
+    status: completed
   - id: cli-updates
     content: "Update Phase 8 CLI: doctor check_memories_dir for persona subdirs, new check_personas_config, onboard _step_memory bootstraps to data/memories/main/, config_cmd shows personas_config_path"
-    status: pending
+    status: completed
   - id: tests
     content: "New tests: test_persona_resolution, test_episodic_scoped_by_persona, test_fallback_to_main; update existing tests for changed signatures (including CLI tests)"
-    status: pending
+    status: completed
   - id: plan-update
     content: "Update .cursor/plans implementation strategy: Phase 7 includes persona support"
-    status: pending
+    status: completed
 isProject: false
 ---
 
