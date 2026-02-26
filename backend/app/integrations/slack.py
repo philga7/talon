@@ -9,6 +9,7 @@ from typing import Any
 from structlog import get_logger
 
 from app.integrations.base import BaseIntegration, IntegrationStatus
+from app.personas.registry import PersonaRegistry
 
 log = get_logger()
 
@@ -21,7 +22,11 @@ class SlackIntegration(BaseIntegration):
 
     name = "slack"
 
-    def __init__(self, chat_callback: Any = None) -> None:
+    def __init__(
+        self,
+        chat_callback: Any = None,
+        persona_registry: PersonaRegistry | None = None,
+    ) -> None:
         self._bot_token: str | None = None
         self._app_token: str | None = None
         self._bolt_app: Any = None
@@ -30,6 +35,7 @@ class SlackIntegration(BaseIntegration):
         self._connected = False
         self._error: str | None = None
         self._chat_callback = chat_callback
+        self._persona_registry = persona_registry
 
     def is_configured(self) -> bool:
         bot_path = _SECRETS_DIR / "slack_bot_token"
@@ -62,12 +68,12 @@ class SlackIntegration(BaseIntegration):
 
             @self._bolt_app.event("app_mention")
             async def handle_mention(event: dict[str, Any], say: Any) -> None:  # pyright: ignore[reportUnusedFunction]
-                await _handle_slack_message(event, say, chat_cb)
+                await _handle_slack_message(event, say, chat_cb, self._persona_registry)
 
             @self._bolt_app.event("message")
             async def handle_dm(event: dict[str, Any], say: Any) -> None:  # pyright: ignore[reportUnusedFunction]
                 if event.get("channel_type") == "im":
-                    await _handle_slack_message(event, say, chat_cb)
+                    await _handle_slack_message(event, say, chat_cb, self._persona_registry)
 
             self._handler = AsyncSocketModeHandler(self._bolt_app, self._app_token)
             self._task = asyncio.create_task(self._run_handler())
@@ -113,7 +119,10 @@ class SlackIntegration(BaseIntegration):
 
 
 async def _handle_slack_message(
-    event: dict[str, Any], say: Any, chat_callback: Any
+    event: dict[str, Any],
+    say: Any,
+    chat_callback: Any,
+    persona_registry: PersonaRegistry | None = None,
 ) -> None:
     """Process an inbound Slack message through the ChatRouter."""
     text = event.get("text", "").strip()
@@ -122,6 +131,9 @@ async def _handle_slack_message(
     channel = event.get("channel", "unknown")
     user = event.get("user", "unknown")
     session_id = f"slack_{channel}"
+    persona_id = "main"
+    if persona_registry is not None:
+        persona_id = persona_registry.resolve("slack", str(channel)).id
     log.info("slack_message_received", user=user, channel=channel)
     if chat_callback:
         try:
@@ -129,6 +141,7 @@ async def _handle_slack_message(
                 session_id=session_id,
                 message=text,
                 source="slack",
+                persona_id=persona_id,
             )
             if reply:
                 await say(reply)

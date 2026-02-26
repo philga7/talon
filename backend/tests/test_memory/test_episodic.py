@@ -46,6 +46,7 @@ async def test_save_turn_inserts_two_entries(db_session: AsyncSession) -> None:
     roles = {e.role for e in entries}
     assert "user" in roles
     assert "assistant" in roles
+    assert {e.persona_id for e in entries} == {"main"}
 
 
 @pytest.mark.asyncio
@@ -72,3 +73,41 @@ async def test_count_active(db_session: AsyncSession) -> None:
     assert n >= 2
     n_all = await store.count_active(db_session, session_id=None)
     assert n_all >= 2
+
+
+@pytest.mark.asyncio
+async def test_retrieve_relevant_scoped_by_persona(db_session: AsyncSession) -> None:
+    """retrieve_relevant only returns rows for the requested persona."""
+    store = EpisodicStore()
+    await store.save_turn(
+        db_session,
+        "persona-session",
+        "main-user",
+        "main-assistant",
+        persona_id="main",
+    )
+    await store.save_turn(
+        db_session,
+        "persona-session",
+        "analyst-user",
+        "analyst-assistant",
+        persona_id="analyst",
+    )
+
+    main_entries = await store.retrieve_relevant(
+        db_session,
+        "persona-session",
+        "query",
+        k=10,
+        persona_id="main",
+    )
+    analyst_entries = await store.retrieve_relevant(
+        db_session,
+        "persona-session",
+        "query",
+        k=10,
+        persona_id="analyst",
+    )
+
+    assert {entry.persona_id for entry in main_entries} == {"main"}
+    assert {entry.persona_id for entry in analyst_entries} == {"analyst"}

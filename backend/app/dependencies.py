@@ -14,6 +14,7 @@ from app.memory.compressor import MemoryCompressor
 from app.memory.engine import MemoryEngine
 from app.memory.episodic import EpisodicStore
 from app.memory.working import WorkingMemoryStore
+from app.personas.registry import PersonaRegistry
 from app.scheduler.engine import TalonScheduler
 from app.sentinel.tree import EventRouter
 from app.sentinel.watcher import FileSentinel
@@ -41,6 +42,9 @@ _event_router: EventRouter | None = None
 
 # Integration manager — initialized at startup (Phase 7)
 _integration_manager: IntegrationManager | None = None
+
+# Persona registry — initialized at startup
+_persona_registry: PersonaRegistry | None = None
 
 
 def init_db(settings: object) -> None:
@@ -75,6 +79,16 @@ def init_memory(settings: TalonSettings) -> None:
         memories_dir=settings.memories_dir,
         core_matrix_path=settings.core_matrix_path,
     )
+
+
+def init_persona_registry(settings: TalonSettings) -> PersonaRegistry:
+    """Initialize persona registry from config/personas.yaml."""
+    global _persona_registry
+    _persona_registry = PersonaRegistry(
+        config_path=settings.personas_config_path,
+        project_root=settings.project_root,
+    )
+    return _persona_registry
 
 
 def init_registry(settings: TalonSettings) -> None:
@@ -136,6 +150,14 @@ def get_memory() -> MemoryEngine:
     return _memory
 
 
+def get_persona_registry() -> PersonaRegistry:
+    """Persona registry dependency."""
+    if _persona_registry is None:
+        msg = "Persona registry not initialized; call init_persona_registry at startup"
+        raise RuntimeError(msg)
+    return _persona_registry
+
+
 def init_scheduler(settings: TalonSettings) -> TalonScheduler:
     """Initialize the scheduler and register built-in jobs."""
     global _scheduler
@@ -155,7 +177,7 @@ def init_scheduler(settings: TalonSettings) -> TalonScheduler:
     return _scheduler
 
 
-def init_sentinel(settings: TalonSettings) -> FileSentinel:
+def init_sentinel(settings: TalonSettings, persona_registry: PersonaRegistry) -> FileSentinel:
     """Initialize the file sentinel and event router."""
     global _sentinel, _event_router
     if _memory is None or _registry is None:
@@ -167,6 +189,7 @@ def init_sentinel(settings: TalonSettings) -> FileSentinel:
         memories_dir=settings.memories_dir,
         skills_dir=settings.skills_dir,
         config_dir=settings.project_root / "config",
+        persona_registry=persona_registry,
     )
     _event_router.bind_loop(asyncio.get_running_loop())
     _sentinel = FileSentinel(_event_router)
@@ -190,7 +213,10 @@ def get_sentinel() -> FileSentinel:
     return _sentinel
 
 
-async def init_integrations(settings: TalonSettings) -> IntegrationManager:
+async def init_integrations(
+    settings: TalonSettings,
+    persona_registry: PersonaRegistry,
+) -> IntegrationManager:
     """Initialize and start all configured integrations (Phase 7)."""
     global _integration_manager
     if _gateway is None or _memory is None or _registry is None or _executor is None:
@@ -207,11 +233,16 @@ async def init_integrations(settings: TalonSettings) -> IntegrationManager:
         memory=_memory,
         registry=_registry,
         executor=_executor,
+        persona_registry=persona_registry,
     )
 
     _integration_manager = IntegrationManager()
-    _integration_manager.register(DiscordIntegration(chat_callback=chat_callback))
-    _integration_manager.register(SlackIntegration(chat_callback=chat_callback))
+    _integration_manager.register(
+        DiscordIntegration(chat_callback=chat_callback, persona_registry=persona_registry)
+    )
+    _integration_manager.register(
+        SlackIntegration(chat_callback=chat_callback, persona_registry=persona_registry)
+    )
     _integration_manager.register(WebhookIntegration())
 
     set_webhook_chat_callback(chat_callback)

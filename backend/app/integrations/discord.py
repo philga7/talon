@@ -9,6 +9,7 @@ from typing import Any
 from structlog import get_logger
 
 from app.integrations.base import BaseIntegration, IntegrationStatus
+from app.personas.registry import PersonaRegistry
 
 log = get_logger()
 
@@ -21,13 +22,18 @@ class DiscordIntegration(BaseIntegration):
 
     name = "discord"
 
-    def __init__(self, chat_callback: Any = None) -> None:
+    def __init__(
+        self,
+        chat_callback: Any = None,
+        persona_registry: PersonaRegistry | None = None,
+    ) -> None:
         self._token: str | None = None
         self._client: Any = None
         self._task: asyncio.Task[None] | None = None
         self._connected = False
         self._error: str | None = None
         self._chat_callback = chat_callback
+        self._persona_registry = persona_registry
 
     def is_configured(self) -> bool:
         token_path = _SECRETS_DIR / "discord_bot_token"
@@ -73,6 +79,11 @@ class DiscordIntegration(BaseIntegration):
                 if not content:
                     return
                 session_id = f"discord_{message.channel.id}"
+                persona_id = "main"
+                if self._persona_registry is not None:
+                    persona_id = self._persona_registry.resolve(
+                        "discord", str(message.channel.id)
+                    ).id
                 log.info(
                     "discord_message_received",
                     user=str(message.author),
@@ -84,6 +95,7 @@ class DiscordIntegration(BaseIntegration):
                             session_id=session_id,
                             message=content,
                             source="discord",
+                            persona_id=persona_id,
                         )
                         if reply:
                             for chunk in _split_message(reply, 2000):

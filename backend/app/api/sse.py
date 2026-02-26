@@ -12,10 +12,18 @@ from structlog import get_logger
 
 from app.api.chat_router import build_messages
 from app.core.errors import AllProvidersDown
-from app.dependencies import get_db, get_executor, get_gateway, get_memory, get_registry
+from app.dependencies import (
+    get_db,
+    get_executor,
+    get_gateway,
+    get_memory,
+    get_persona_registry,
+    get_registry,
+)
 from app.llm.gateway import LLMGateway
 from app.llm.models import ChatMessage, LLMRequest
 from app.memory.engine import MemoryEngine
+from app.personas.registry import PersonaRegistry
 from app.skills.executor import SkillExecutor
 from app.skills.registry import SkillRegistry
 
@@ -36,23 +44,29 @@ def _sse_event(name: str, data: object) -> str:
 async def _event_stream(
     session_id: str,
     prompt: str,
+    persona_id: str,
     db: AsyncSession,
     gateway: LLMGateway,
     memory: MemoryEngine,
+    personas: PersonaRegistry,
     registry: SkillRegistry,
     executor: SkillExecutor,
 ) -> AsyncGenerator[str, None]:
     """Stream token and tool events; run tool loop when model returns tool_calls."""
     try:
+        persona = personas.get(persona_id)
         messages = await build_messages(
             session_id=session_id,
             user_message=prompt,
             db=db,
             memory=memory,
+            persona_id=persona.id,
+            persona_memories_dir=persona.memories_dir,
         )
         request = LLMRequest(
             messages=messages,
             tools=registry.tools_for_llm() or None,
+            model_override=persona.model_override,
         )
         iteration = 0
         while iteration < MAX_SSE_ITERATIONS:
@@ -121,9 +135,11 @@ async def _event_stream(
 async def sse(
     session_id: str,
     prompt: str = Query(..., min_length=1, max_length=32_000),
+    persona_id: str = Query(default="main", max_length=64),
     db: AsyncSession = Depends(get_db),  # noqa: B008
     gateway: LLMGateway = Depends(get_gateway),  # noqa: B008
     memory: MemoryEngine = Depends(get_memory),  # noqa: B008
+    personas: PersonaRegistry = Depends(get_persona_registry),  # noqa: B008
     registry: SkillRegistry = Depends(get_registry),  # noqa: B008
     executor: SkillExecutor = Depends(get_executor),  # noqa: B008
 ) -> StreamingResponse:
@@ -133,9 +149,11 @@ async def sse(
         _event_stream(
             session_id=session_id,
             prompt=prompt,
+            persona_id=persona_id,
             db=db,
             gateway=gateway,
             memory=memory,
+            personas=personas,
             registry=registry,
             executor=executor,
         ),

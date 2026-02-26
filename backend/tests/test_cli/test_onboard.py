@@ -18,6 +18,7 @@ class TestOnboardWizard:
         with patch("app.cli.onboard.get_settings") as mock_settings:
             mock_settings.return_value.project_root = tmp_path
             mock_settings.return_value.memories_dir = tmp_path / "data" / "memories"
+            mock_settings.return_value.personas_config_path = tmp_path / "config" / "personas.yaml"
             mock_settings.return_value.log_file_path = tmp_path / "data" / "logs" / "talon.jsonl"
             mock_settings.return_value.db_host = "127.0.0.1"
             mock_settings.return_value.db_port = 5432
@@ -37,7 +38,7 @@ class TestOnboardWizard:
             False,          # build frontend?
             False,          # health check?
         ]
-        wizard, prompter = self._make_wizard(answers, tmp_path)
+        wizard, _prompter = self._make_wizard(answers, tmp_path)
 
         with patch("shutil.which", return_value=None):
             result = wizard.run()
@@ -59,7 +60,7 @@ class TestOnboardWizard:
             False,          # build frontend?
             False,          # health check?
         ]
-        wizard, prompter = self._make_wizard(answers, tmp_path)
+        wizard, _prompter = self._make_wizard(answers, tmp_path)
 
         with patch("shutil.which", return_value=None):
             result = wizard.run()
@@ -81,13 +82,13 @@ class TestOnboardWizard:
             False,          # build frontend?
             False,          # health check?
         ]
-        wizard, prompter = self._make_wizard(answers, tmp_path)
+        wizard, _prompter = self._make_wizard(answers, tmp_path)
 
         with patch("shutil.which", return_value=None):
             result = wizard.run()
 
         assert result is True
-        assert any("integrations" in m.lower() for m in prompter.messages)
+        assert any("integrations" in m.lower() for m in _prompter.messages)
 
     def test_memory_bootstrap_creates_identity(self, tmp_path: Path) -> None:
         """Wizard creates default identity.md if data/memories/ is empty."""
@@ -99,12 +100,12 @@ class TestOnboardWizard:
             False,          # frontend
             False,          # health
         ]
-        wizard, prompter = self._make_wizard(answers, tmp_path)
+        wizard, _prompter = self._make_wizard(answers, tmp_path)
 
         with patch("shutil.which", return_value=None):
             wizard.run()
 
-        identity = tmp_path / "data" / "memories" / "identity.md"
+        identity = tmp_path / "data" / "memories" / "main" / "identity.md"
         assert identity.is_file()
         assert "Talon" in identity.read_text()
 
@@ -123,7 +124,7 @@ class TestOnboardWizard:
             False,          # frontend
             False,          # health
         ]
-        wizard, prompter = self._make_wizard(answers, tmp_path)
+        wizard, _prompter = self._make_wizard(answers, tmp_path)
 
         with patch("shutil.which", return_value=None):
             wizard.run()

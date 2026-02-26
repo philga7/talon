@@ -2,9 +2,10 @@
 
 Self-hosted personal AI gateway for a single operator. Licensed under [AGPL v3](LICENSE). Inspired by OpenClaw (Node.js/TypeScript). Python/TypeScript stack on a single Hostinger VPS.
 
-**Status: Phases 1–8 complete.** Foundation, LLM gateway, three-tier memory, Skills + Chat Router, Frontend MVP, Scheduler + Sentinel, Integrations + remaining skills, and **CLI + Onboarding** are implemented. The `talon` CLI provides `onboard` (setup wizard), `doctor` (diagnostics), `config` (inspection), and `status` (unified health view).
+**Status: Phases 1–8 complete, including multi-persona support.** Foundation, LLM gateway, three-tier memory, Skills + Chat Router, Frontend MVP, Scheduler + Sentinel, Integrations + persona-aware routing, and **CLI + Onboarding** are implemented. The `talon` CLI provides `onboard` (setup wizard), `doctor` (diagnostics), `config` (inspection), and `status` (unified health view).
 
 - **Stack:** FastAPI, PostgreSQL+pgvector, React+Vite+TypeScript, TailwindCSS v4+daisyUI v5, SSE streaming, LiteLLM, Zustand, APScheduler, watchdog, discord.py, slack_bolt, Typer+Rich CLI
+- **Personas:** Config-driven identity layers via `config/personas.yaml` (default `main`, optional channel-bound personas like `analyst`)
 - **Docs:** See [AGENTS.md](AGENTS.md) for full spec and [`.cursor/plans/`](.cursor/plans/) for phased implementation roadmap
 - **CI:** GitHub Actions runs backend lint (ruff, pyright) + tests, and frontend lint (ESLint) + type-check (tsc) + tests (Vitest) + build on all PRs.
 

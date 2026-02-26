@@ -145,8 +145,9 @@ class LLMGateway:
         messages_payload = [
             {k: v for k, v in m.model_dump().items() if v is not None} for m in request.messages
         ]
+        model = request.model_override or provider.model
         litellm_params: dict[str, Any] = {
-            "model": provider.model,
+            "model": model,
             "messages": messages_payload,
             "temperature": request.temperature,
         }
@@ -193,8 +194,9 @@ class LLMGateway:
         messages_payload = [
             {k: v for k, v in m.model_dump().items() if v is not None} for m in request.messages
         ]
+        model = request.model_override or provider.model
         litellm_params: dict[str, Any] = {
-            "model": provider.model,
+            "model": model,
             "messages": messages_payload,
             "temperature": request.temperature,
             "stream": True,

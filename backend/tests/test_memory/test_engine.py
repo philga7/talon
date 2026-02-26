@@ -75,7 +75,11 @@ async def test_build_system_prompt_includes_working() -> None:
             memories_dir=tmp_dir,
             core_matrix_path=core_path,
         )
-        engine._core_matrix = {"schema": [], "rows": [], "token_count": 0}  # pyright: ignore[reportPrivateUsage]
+        engine._matrix_cache["main"] = {  # pyright: ignore[reportPrivateUsage]
+            "schema": [],
+            "rows": [],
+            "token_count": 0,
+        }
         db = AsyncMock()
         empty_list: list[object] = []
         db.execute = AsyncMock(

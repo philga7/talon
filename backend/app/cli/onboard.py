@@ -55,6 +55,10 @@ class OnboardWizard:
         if not ok:
             return False
 
+        ok = self._step_personas()
+        if not ok:
+            return False
+
         if mode == "advanced":
             self._step_integrations()
 
@@ -168,10 +172,14 @@ class OnboardWizard:
     def _step_memory(self) -> bool:
         """Bootstrap memory source files if missing."""
         p = self.prompter
-        mem_dir = self.settings.memories_dir
+        mem_root = self.settings.memories_dir
+        mem_dir = mem_root / "main"
 
         p.progress("Checking memory source files")
 
+        if not mem_root.is_dir():
+            mem_root.mkdir(parents=True, exist_ok=True)
+            p.note(f"Created {mem_root}")
         if not mem_dir.is_dir():
             mem_dir.mkdir(parents=True, exist_ok=True)
             p.note(f"Created {mem_dir}")
@@ -186,8 +194,29 @@ class OnboardWizard:
                 "- Name: Talon\n"
                 "- Role: Personal AI assistant\n"
             )
-            p.note("Created default identity.md in data/memories/")
+            p.note("Created default identity.md in data/memories/main/")
 
+        return True
+
+    def _step_personas(self) -> bool:
+        """Bootstrap personas.yaml if missing."""
+        p = self.prompter
+        personas_path = self.settings.personas_config_path
+        p.progress("Checking personas configuration")
+        if personas_path.is_file():
+            p.note(f"personas.yaml exists at {personas_path}")
+            return True
+
+        personas_path.parent.mkdir(parents=True, exist_ok=True)
+        personas_path.write_text(
+            "personas:\n"
+            "  main:\n"
+            "    memories_dir: data/memories/main\n"
+            "    model_override: null\n"
+            "    channel_bindings: []\n",
+            encoding="utf-8",
+        )
+        p.note("Created default config/personas.yaml")
         return True
 
     def _step_integrations(self) -> None:

@@ -33,6 +33,7 @@ class WebhookPayload(BaseModel):
     message: str = Field(..., min_length=1, max_length=32_000)
     session_id: str = Field(default="webhook_default", min_length=1, max_length=128)
     source: str = Field(default="webhook", max_length=64)
+    persona_id: str = Field(default="main", max_length=64)
 
 
 class WebhookResponse(BaseModel):
@@ -68,6 +69,7 @@ async def receive_webhook(
             session_id=payload.session_id,
             message=payload.message,
             source=payload.source,
+            persona_id=payload.persona_id,
         )
         return WebhookResponse(content=reply or "", session_id=payload.session_id)
     except Exception:

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from structlog import get_logger
 
 from app.integrations.base import BaseIntegration, IntegrationStatus
+from app.personas.registry import PersonaRegistry
 
 log = get_logger()
 
@@ -54,28 +55,38 @@ async def make_chat_callback(
     memory: object,
     registry: object,
     executor: object,
+    persona_registry: PersonaRegistry,
 ) -> object:
     """Build a chat callback that routes messages through the ChatRouter.
 
     The returned async callable has signature:
-        async def callback(session_id: str, message: str, source: str) -> str
+        async def callback(session_id: str, message: str, source: str, persona_id: str = "main") -> str
     """
     from app.api.chat_router import build_messages, run_tool_loop, save_turn
 
-    async def _callback(session_id: str, message: str, source: str) -> str:
+    async def _callback(
+        session_id: str,
+        message: str,
+        source: str,
+        persona_id: str = "main",
+    ) -> str:
         db: AsyncSession = await get_db_session.__anext__()  # type: ignore[union-attr]
         try:
+            persona = persona_registry.get(persona_id)
             messages = await build_messages(
                 session_id=session_id,
                 user_message=message,
                 db=db,
                 memory=memory,  # type: ignore[arg-type]
+                persona_id=persona.id,
+                persona_memories_dir=persona.memories_dir,
             )
             response = await run_tool_loop(
                 messages=messages,
                 gateway=gateway,  # type: ignore[arg-type]
                 registry=registry,  # type: ignore[arg-type]
                 executor=executor,  # type: ignore[arg-type]
+                model_override=persona.model_override,
             )
             reply = response.content or ""
             await save_turn(
@@ -84,6 +95,7 @@ async def make_chat_callback(
                 user_message=message,
                 assistant_message=reply,
                 memory=memory,  # type: ignore[arg-type]
+                persona_id=persona.id,
             )
             await db.commit()
             return reply

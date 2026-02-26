@@ -1,0 +1,13 @@
+personas:
+  main:
+    memories_dir: data/memories/main
+    model_override: null
+    channel_bindings: []
+  analyst:
+    memories_dir: data/memories/analyst
+    model_override: null
+    channel_bindings:
+      - platform: slack
+        channel_id: "PLACEHOLDER"
+      - platform: discord
+        channel_id: "PLACEHOLDER"

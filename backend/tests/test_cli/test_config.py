@@ -21,6 +21,7 @@ class TestConfigShow:
         assert "log_level" in result
         assert "project_root" in result
         assert "debug" in result
+        assert "personas_config_path" in result
 
 
 class TestConfigGet:

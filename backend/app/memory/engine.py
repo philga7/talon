@@ -54,52 +54,86 @@ class MemoryEngine:
         self._compressor = compressor
         self._episodic = episodic_store
         self._working = working_store
-        self._memories_dir = memories_dir
+        self._base_memories_dir = memories_dir
         self._core_matrix_path = core_matrix_path
-        self._core_matrix: dict[str, Any] = self._load_or_compile_core()
+        self._matrix_cache: dict[str, dict[str, Any]] = {}
+        self._load_or_compile_for_persona("main", self._default_main_memories_dir())
 
-    def _load_or_compile_core(self) -> dict[str, Any]:
-        """Load compiled matrix from file if present and valid, else compile from Markdown."""
-        if self._core_matrix_path.exists():
+    def _default_main_memories_dir(self) -> Path:
+        main_dir = self._base_memories_dir / "main"
+        if main_dir.is_dir():
+            return main_dir
+        return self._base_memories_dir
+
+    def _matrix_path_for_persona(self, persona_id: str) -> Path:
+        if persona_id == "main":
+            return self._core_matrix_path
+        return self._core_matrix_path.with_name(f"core_matrix_{persona_id}.json")
+
+    def _load_or_compile_for_persona(
+        self,
+        persona_id: str,
+        memories_dir: Path | None = None,
+    ) -> dict[str, Any]:
+        if persona_id in self._matrix_cache:
+            return self._matrix_cache[persona_id]
+
+        matrix_path = self._matrix_path_for_persona(persona_id)
+        if matrix_path.exists():
             try:
-                data = json.loads(self._core_matrix_path.read_text(encoding="utf-8"))
+                data = json.loads(matrix_path.read_text(encoding="utf-8"))
                 if "schema" in data and "rows" in data:
+                    self._matrix_cache[persona_id] = data
                     return data
-            except (OSError, json.JSONDecodeError) as e:
-                log.warning(
-                    "core_matrix_load_failed", path=str(self._core_matrix_path), error=str(e)
-                )
-        matrix = self._compressor.compile(self._memories_dir)
-        self._write_core_matrix(matrix)
+            except (OSError, json.JSONDecodeError) as exc:
+                log.warning("core_matrix_load_failed", path=str(matrix_path), error=str(exc))
+
+        source_dir = memories_dir or self._default_main_memories_dir()
+        matrix = self._compressor.compile(source_dir)
+        self._matrix_cache[persona_id] = matrix
+        self._write_core_matrix(persona_id, matrix)
         return matrix
 
-    def _write_core_matrix(self, matrix: dict[str, Any]) -> None:
-        """Persist core matrix JSON to disk."""
+    def _write_core_matrix(self, persona_id: str, matrix: dict[str, Any]) -> None:
+        matrix_path = self._matrix_path_for_persona(persona_id)
         try:
-            self._core_matrix_path.parent.mkdir(parents=True, exist_ok=True)
-            self._core_matrix_path.write_text(
-                json.dumps(matrix, indent=2),
-                encoding="utf-8",
-            )
-        except OSError as e:
-            log.warning("core_matrix_write_failed", path=str(self._core_matrix_path), error=str(e))
+            matrix_path.parent.mkdir(parents=True, exist_ok=True)
+            matrix_path.write_text(json.dumps(matrix, indent=2), encoding="utf-8")
+        except OSError as exc:
+            log.warning("core_matrix_write_failed", path=str(matrix_path), error=str(exc))
 
     def recompile_core(self) -> dict[str, Any]:
-        """Recompile from Markdown and update in-memory matrix; call on Sentinel events."""
-        matrix = self._compressor.compile(self._memories_dir)
-        self._core_matrix = matrix
-        self._write_core_matrix(matrix)
+        """Recompile main persona from Markdown and update cache."""
+        return self.recompile_persona("main", self._default_main_memories_dir())
+
+    def recompile_persona(self, persona_id: str, memories_dir: Path) -> dict[str, Any]:
+        """Recompile one persona from Markdown and update cache."""
+        matrix = self._compressor.compile(memories_dir)
+        self._matrix_cache[persona_id] = matrix
+        self._write_core_matrix(persona_id, matrix)
         return matrix
+
+    def invalidate_cache(self, persona_id: str) -> None:
+        """Drop one persona matrix from in-memory cache."""
+        self._matrix_cache.pop(persona_id, None)
+
+    def get_core_matrix(
+        self,
+        persona_id: str = "main",
+        persona_memories_dir: Path | None = None,
+    ) -> dict[str, Any]:
+        """Get a persona matrix from cache or compile/load it."""
+        return self._load_or_compile_for_persona(persona_id, persona_memories_dir)
 
     @property
     def core_matrix(self) -> dict[str, Any]:
-        """Current core matrix (read-only)."""
-        return self._core_matrix
+        """Compatibility accessor for existing callers (main persona)."""
+        return self.get_core_matrix("main")
 
     @property
     def core_tokens(self) -> int:
-        """Token count of current core matrix."""
-        return int(self._core_matrix.get("token_count", 0))
+        """Token count of main persona core matrix."""
+        return int(self.core_matrix.get("token_count", 0))
 
     @property
     def episodic_store(self) -> EpisodicStore:
@@ -115,14 +149,21 @@ class MemoryEngine:
         session_id: str,
         current_message: str,
         query_embedding: list[float] | None = None,
+        persona_id: str = "main",
+        persona_memories_dir: Path | None = None,
     ) -> str:
         """Assemble system prompt: core matrix + episodic (top-k) + working memory."""
         parts: list[str] = []
-        core_text = format_matrix_for_prompt(self._core_matrix)
+        core_matrix = self.get_core_matrix(persona_id, persona_memories_dir)
+        core_text = format_matrix_for_prompt(core_matrix)
         if core_text:
             parts.append(core_text)
         episodic = await self._episodic.retrieve_relevant(
-            db, session_id, current_message, query_embedding=query_embedding
+            db,
+            session_id,
+            current_message,
+            query_embedding=query_embedding,
+            persona_id=persona_id,
         )
         if episodic:
             parts.append("## Relevant past context")

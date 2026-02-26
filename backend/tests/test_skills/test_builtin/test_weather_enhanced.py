@@ -1,4 +1,5 @@
 """Weather enhanced skill tests."""
+# pyright: reportPrivateUsage=false, reportOptionalSubscript=false
 
 import sys
 from pathlib import Path
