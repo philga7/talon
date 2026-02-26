@@ -71,6 +71,19 @@ Still open the UI at **http://localhost:5173**.
 | POST | `/api/scheduler/jobs/{id}/trigger` | Manually trigger a scheduled job |
 | POST | `/api/integrations/webhook` | Generic webhook receiver (routes through ChatRouter) |
 
+**curl examples** (backend on port 8088; add `-H 'X-API-Key: your-key'` if auth is enabled):
+
+```bash
+curl http://localhost:8088/api/health | jq
+curl http://localhost:8088/api/memory | jq
+curl http://localhost:8088/api/skills | jq
+curl http://localhost:8088/api/scheduler/jobs | jq
+curl -X POST http://localhost:8088/api/chat -H 'Content-Type: application/json' -d '{"message":"What is AAPL stock price?","session_id":"test"}'
+curl 'http://localhost:8088/api/sse/test-session?prompt=hello'
+curl -X POST http://localhost:8088/api/scheduler/jobs/{job_id}/trigger
+curl -X POST http://localhost:8088/api/integrations/webhook -H 'Content-Type: application/json' -d '{"message":"hello","session_id":"webhook-test"}'
+```
+
 Interactive API docs when the server is running: `http://localhost:8088/docs`.
 
 ### CLI Commands
