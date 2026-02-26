@@ -79,11 +79,13 @@ curl http://localhost:8088/api/health | jq
 curl http://localhost:8088/api/memory | jq
 curl http://localhost:8088/api/skills | jq
 curl http://localhost:8088/api/scheduler/jobs | jq
-curl -X POST http://localhost:8088/api/chat -H 'Content-Type: application/json' -d '{"message":"What is AAPL stock price?","session_id":"test"}'
-curl 'http://localhost:8088/api/sse/test-session?prompt=hello'
+curl -X POST http://localhost:8088/api/chat -H 'Content-Type: application/json' -d '{"message":"What is AAPL stock price?","session_id":"test","persona_id":"main"}'
+curl 'http://localhost:8088/api/sse/test-session?prompt=hello&persona_id=main'
 curl -X POST http://localhost:8088/api/scheduler/jobs/{job_id}/trigger
-curl -X POST http://localhost:8088/api/integrations/webhook -H 'Content-Type: application/json' -d '{"message":"hello","session_id":"webhook-test"}'
+curl -X POST http://localhost:8088/api/integrations/webhook -H 'Content-Type: application/json' -d '{"message":"hello","session_id":"webhook-test","persona_id":"main"}'
 ```
+
+`/api/chat`, `/api/sse`, and webhook payloads accept optional `persona_id` (defaults to `main`).
 
 Interactive API docs when the server is running: `http://localhost:8088/docs`.
 

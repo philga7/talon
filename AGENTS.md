@@ -83,6 +83,7 @@ Core responsibilities:
 ├── config/
 │   ├── talon.toml               Main config (chmod 600)
 │   ├── providers.yaml           LLM provider definitions
+│   ├── personas.yaml            Persona definitions + channel bindings
 │   └── secrets/                 Secrets directory (chmod 700, files chmod 600)
 ├── scripts/                     Migration + utility scripts
 ├── deploy/                      systemd unit, nginx config, Dockerfile
@@ -164,6 +165,7 @@ All provider config lives in `config/providers.yaml`.
 - PostgreSQL is accessed **only** via SQLAlchemy async sessions.
 - The frontend is a **pure static build** served by nginx.
 - All chat, regardless of platform, routes through `ChatRouter`.
+- Persona resolution defaults to `main` when channel binding or `persona_id` is missing/unknown.
 - Integrations (Discord, Slack, webhook) start conditionally based on secrets.
   Missing secrets = silently skipped; no crash, no error.
 
