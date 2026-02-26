@@ -25,7 +25,7 @@ todos:
     status: pending
   - id: phase-8
     content: "Phase 8: CLI + Onboarding -- typer CLI, talon onboard wizard, talon doctor, talon config, talon status, WizardPrompter, first-time setup flow"
-    status: pending
+    status: completed
   - id: phase-9
     content: "Phase 9: Hardening + Migration -- Migration scripts, Playwright E2E, chaos tests, security audit, frontend polish, SSL, OpenClaw decommission"
     status: pending
