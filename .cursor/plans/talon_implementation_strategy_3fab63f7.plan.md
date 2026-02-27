@@ -31,7 +31,7 @@ todos:
     status: completed
   - id: phase-9
     content: "Phase 9: Hardening + Migration -- Migration scripts, Playwright E2E, chaos tests, security audit, frontend polish, SSL, OpenClaw decommission"
-    status: pending
+    status: completed
 isProject: false
 ---
 
