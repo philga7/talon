@@ -11,3 +11,5 @@ personas:
         channel_id: "PLACEHOLDER"
       - platform: discord
         channel_id: "PLACEHOLDER"
+      - platform: telegram
+        channel_id: "PLACEHOLDER"

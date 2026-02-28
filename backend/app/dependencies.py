@@ -225,6 +225,7 @@ async def init_integrations(
     from app.integrations.discord import DiscordIntegration
     from app.integrations.manager import make_chat_callback
     from app.integrations.slack import SlackIntegration
+    from app.integrations.telegram import TelegramIntegration
     from app.integrations.webhook import WebhookIntegration, set_webhook_chat_callback
 
     chat_callback = await make_chat_callback(
@@ -242,6 +243,9 @@ async def init_integrations(
     )
     _integration_manager.register(
         SlackIntegration(chat_callback=chat_callback, persona_registry=persona_registry)
+    )
+    _integration_manager.register(
+        TelegramIntegration(chat_callback=chat_callback, persona_registry=persona_registry)
     )
     _integration_manager.register(WebhookIntegration())
 

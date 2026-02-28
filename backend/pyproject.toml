@@ -37,6 +37,7 @@ dev = [
 ]
 discord = ["discord.py>=2.3.0"]
 slack = ["slack-bolt>=1.18.0"]
+telegram = ["python-telegram-bot>=21.0"]
 
 [build-system]
 requires = ["hatchling"]

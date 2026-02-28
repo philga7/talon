@@ -18,7 +18,7 @@ class IntegrationStatus(BaseModel):
 class IncomingMessage(BaseModel):
     """Normalized inbound message from any platform."""
 
-    platform: str = Field(..., description="discord | slack | webhook")
+    platform: str = Field(..., description="discord | slack | telegram | webhook")
     session_id: str = Field(..., description="Platform-specific channel/thread ID")
     user_id: str = Field(default="", description="Sender identifier on the platform")
     content: str = Field(..., min_length=1, max_length=32_000)
