@@ -24,7 +24,7 @@ todos:
     content: "Phase 7: Integrations + Personas + Remaining Skills -- Discord, Slack, webhook receiver, multi-persona support (PersonaRegistry, persona-scoped memory, channel-binding resolution), weather/email/news skills ported"
     status: completed
   - id: phase-7-personas
-    content: "Phase 7 multi-persona support — PersonaRegistry, persona-scoped memory, channel-binding, CLI retrofit (completed in codebase)"
+    content: Phase 7 multi-persona support — PersonaRegistry, persona-scoped memory, channel-binding, CLI retrofit (completed in codebase)
     status: completed
   - id: phase-8
     content: "Phase 8: CLI + Onboarding -- typer CLI, talon onboard wizard, talon doctor, talon config, talon status, WizardPrompter, first-time setup flow"
