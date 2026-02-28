@@ -19,7 +19,7 @@ Core responsibilities:
 - Maintain a three-tier memory system (core matrix, episodic, working)
 - Execute skills (tools) via a dynamic hot-reload registry
 - Serve a real-time web UI over SSE
-- Bridge Discord, Slack, and webhook integrations through a unified chat router
+- Bridge Discord, Slack, Telegram, and webhook integrations through a unified chat router
 - Run scheduled jobs and watch the filesystem for live config/skill changes
 
 ---
@@ -38,7 +38,7 @@ Core responsibilities:
 | Frontend | React 18 + Vite + TypeScript | `frontend/` directory |
 | Styling | TailwindCSS v4 + daisyUI v5 | No custom CSS unless unavoidable |
 | Realtime | Server-Sent Events (SSE) | `/api/sse/{session_id}` |
-| Integrations | Discord (discord.py), Slack (slack_bolt Socket Mode), Webhook | Conditional on secrets; routes through `ChatRouter` |
+| Integrations | Discord (discord.py), Slack (slack_bolt Socket Mode), Telegram (python-telegram-bot), Webhook | Conditional on secrets; routes through `ChatRouter` |
 | Logging | structlog (JSON lines) | `data/logs/talon.jsonl` |
 | CLI | Typer + Rich | `talon` command: onboard, doctor, config, status |
 | Deployment | systemd (`talon.service`) + Docker Compose | Auxiliary services only in Docker |
@@ -167,8 +167,8 @@ All provider config lives in `config/providers.yaml`.
 - The frontend is a **pure static build** served by nginx.
 - All chat, regardless of platform, routes through `ChatRouter`.
 - Persona resolution defaults to `main` when channel binding or `persona_id` is missing/unknown.
-- Integrations (Discord, Slack, webhook) start conditionally based on secrets.
-  Missing secrets = silently skipped; no crash, no error.
+- Integrations (Discord, Slack, Telegram, webhook) start conditionally based on secrets.
+ Missing secrets = silently skipped; no crash, no error.
 - Security (IronClaw): SSRF guard blocks private IPs on egress.
   Leak scanner hashes vault secrets and scans outbound traffic.
   Prompt guard detects injection with tiered severity (Block/Warn/Review/Sanitize).

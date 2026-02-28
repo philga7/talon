@@ -23,7 +23,7 @@ Talon takes a different approach: a **deep, single-server system** optimized for
 | **Database** | PostgreSQL 16 + pgvector | None (file-based sessions) |
 | **Identity** | Multi-persona via `personas.yaml` — channel-bound, model-override per persona, scoped memory | Multi-agent routing — isolated sessions per agent |
 | **LLM routing** | LiteLLM with circuit breaker (3-fail open, 60s recovery), fallback chain, exponential backoff | Model config with failover profiles |
-| **Channels** | Discord, Slack, Webhook (3) | WhatsApp, Telegram, Slack, Discord, Google Chat, Signal, iMessage, Teams, WebChat, Matrix, Zalo (15+) |
+| **Channels** | Discord, Slack, Telegram, Webhook (4) | WhatsApp, Telegram, Slack, Discord, Google Chat, Signal, iMessage, Teams, WebChat, Matrix, Zalo (15+) |
 | **Companion apps** | Web UI only | macOS menu bar, iOS node, Android node |
 | **Voice** | Not supported | Voice Wake + Talk Mode (macOS/iOS/Android) |
 | **Security** | IronClaw: SSRF guard, leak scanner, prompt injection pipeline, per-skill HTTP allowlist, chained-hash audit log | DM pairing, sandbox mode (Docker) for non-main sessions |
@@ -34,7 +34,7 @@ Talon takes a different approach: a **deep, single-server system** optimized for
 
 **Choose Talon** if you want deep memory, persona-scoped identity, security hardening, and a Python-native stack on a single VPS you fully control.
 
-**Choose OpenClaw** if you need broad channel coverage (WhatsApp, Telegram, iMessage, Teams), companion apps, voice interaction, browser control, or multi-device deployment.
+**Choose OpenClaw** if you need broad channel coverage (WhatsApp, iMessage, Teams), companion apps, voice interaction, browser control, or multi-device deployment.
 
 ---
 
@@ -68,7 +68,7 @@ React 18 + TypeScript frontend with TailwindCSS v4 + daisyUI v5. Four tabs:
 Memory and Log panels are lazy-loaded via `React.lazy()` for fast initial load.
 
 ### Integrations
-Discord (via discord.py), Slack (via slack_bolt Socket Mode), and generic webhook receiver. All route through the unified `ChatRouter`. Integrations start conditionally — if the secret file exists, the integration starts; if not, it silently skips. No crash, no error.
+Discord (via discord.py), Slack (via slack_bolt Socket Mode), Telegram (via python-telegram-bot long-polling), and generic webhook receiver. All route through the unified `ChatRouter`. Integrations start conditionally — if the secret file exists, the integration starts; if not, it silently skips. No crash, no error.
 
 ### Scheduler + Sentinel
 APScheduler runs in-process with a PostgreSQL jobstore. Built-in jobs: memory recompile, LLM health sweep, log rotation, working memory GC, episodic archival, session cleanup. `FileSentinel` watches `data/memories/`, `backend/skills/`, and `config/` for file changes and dispatches events to the memory engine, skill registry, or config reloader.
@@ -109,7 +109,7 @@ Five scripts in `scripts/` for migrating from an existing OpenClaw installation:
 | Styling | TailwindCSS v4 + daisyUI v5 |
 | Streaming | Server-Sent Events (SSE) |
 | State management | Zustand |
-| Integrations | discord.py, slack_bolt, webhook |
+| Integrations | discord.py, slack_bolt, python-telegram-bot, webhook |
 | Scheduler | APScheduler (AsyncIOScheduler) |
 | File watching | watchdog |
 | Logging | structlog (JSON lines) |
@@ -202,6 +202,7 @@ CI runs on GitHub Actions: ruff + pyright + pytest (backend), ESLint + tsc + Vit
 |---|---|---|
 | Discord | `config/secrets/discord_bot_token` | `pip install -e .[discord]` |
 | Slack | `config/secrets/slack_bot_token` + `slack_app_token` | `pip install -e .[slack]` |
+| Telegram | `config/secrets/telegram_bot_token` | `pip install -e .[telegram]` |
 | Webhook | Optional `config/secrets/webhook_secret` (HMAC) | Built-in |
 
 Integrations start if their secrets exist and skip silently if not.
