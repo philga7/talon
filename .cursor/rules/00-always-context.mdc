@@ -41,6 +41,7 @@ backend/app/llm/gateway.py           LLM gateway + circuit breaker
 backend/app/memory/engine.py         Memory engine (3-tier)
 backend/app/skills/base.py           BaseSkill contract
 backend/app/skills/registry.py       Dynamic skill loader
+backend/app/notifications/ntfy.py    NtfyClient — push notifications
 backend/app/core/config.py           Pydantic BaseSettings
 backend/app/core/logging.py          structlog configuration
 config/providers.yaml                LLM provider definitions

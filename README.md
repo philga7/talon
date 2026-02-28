@@ -56,7 +56,7 @@ Config-driven identity layers defined in `config/personas.yaml`. Each persona ha
 ### Skills Engine
 Self-contained tools implementing `BaseSkill` with TOML manifests. The `SkillRegistry` scans, loads, and namespaces tools for the LLM. The `SkillExecutor` wraps every call in `asyncio.wait_for(timeout=30s)` and returns `SkillResult` — skills never raise. `FileSentinel` (watchdog) hot-reloads skills on file change without restart.
 
-**Ported skills:** `searxng_search`, `yahoo_finance`, `weather_enhanced`, `hostinger_email`, `bird` (X/Twitter CLI), `neuron_brief` (AI newsletter fetcher).
+**Ported skills:** `searxng_search`, `yahoo_finance`, `weather_enhanced`, `hostinger_email`, `bird` (X/Twitter CLI), `neuron_brief` (AI newsletter fetcher), `notify` (push notifications via ntfy).
 
 ### Real-Time Web UI
 React 18 + TypeScript frontend with TailwindCSS v4 + daisyUI v5. Four tabs:
@@ -69,6 +69,9 @@ Memory and Log panels are lazy-loaded via `React.lazy()` for fast initial load.
 
 ### Integrations
 Discord (via discord.py), Slack (via slack_bolt Socket Mode), Telegram (via python-telegram-bot long-polling), and generic webhook receiver. All route through the unified `ChatRouter`. Integrations start conditionally — if the secret file exists, the integration starts; if not, it silently skips. No crash, no error.
+
+### Push Notifications (ntfy)
+Outbound mobile/desktop push notifications via a self-hosted [ntfy](https://ntfy.sh) instance. `NtfyClient` is a thin async httpx wrapper that supports Basic auth and Bearer tokens, exposes convenience `alert()` and `info()` helpers, and never raises (fire-and-forget safe). The `notify` skill lets the LLM push alerts proactively. `POST /api/notify` is available for scheduler jobs and webhook triggers. Configured via four secrets: `ntfy_url`, `ntfy_topic`, `ntfy_username`, `ntfy_password`.
 
 ### Scheduler + Sentinel
 APScheduler runs in-process with a PostgreSQL jobstore. Built-in jobs: memory recompile, LLM health sweep, log rotation, working memory GC, episodic archival, session cleanup. `FileSentinel` watches `data/memories/`, `backend/skills/`, and `config/` for file changes and dispatches events to the memory engine, skill registry, or config reloader.
@@ -167,6 +170,7 @@ The Vite dev server proxies `/api/*` to the backend.
 | GET | `/api/scheduler/jobs` | Scheduled jobs and status |
 | POST | `/api/scheduler/jobs/{id}/trigger` | Manually trigger a job |
 | POST | `/api/integrations/webhook` | Webhook receiver (routes through ChatRouter) |
+| POST | `/api/notify` | Send a push notification via ntfy (rate-limited: 20/min) |
 
 `/api/chat`, `/api/sse`, and webhook payloads accept optional `persona_id` (defaults to `main`). Interactive API docs at `http://localhost:8088/docs`.
 
@@ -204,8 +208,9 @@ CI runs on GitHub Actions: ruff + pyright + pytest (backend), ESLint + tsc + Vit
 | Slack | `config/secrets/slack_bot_token` + `slack_app_token` | `pip install -e .[slack]` |
 | Telegram | `config/secrets/telegram_bot_token` | `pip install -e .[telegram]` |
 | Webhook | Optional `config/secrets/webhook_secret` (HMAC) | Built-in |
+| ntfy (push) | `ntfy_url` + `ntfy_topic` + `ntfy_username` + `ntfy_password` | Built-in |
 
-Integrations start if their secrets exist and skip silently if not.
+Chat integrations start if their secrets exist and skip silently if not. ntfy is optional — Talon starts normally without it; the `notify` skill reports unconfigured and `POST /api/notify` returns 503.
 
 ---
 
@@ -305,6 +310,7 @@ talon/
 │   │   ├── memory/              Compressor, episodic, working
 │   │   ├── skills/              BaseSkill, registry, executor
 │   │   ├── integrations/        Discord, Slack, webhook
+│   │   ├── notifications/       NtfyClient (push notifications)
 │   │   ├── scheduler/           APScheduler + jobs
 │   │   ├── sentinel/            watchdog + event router
 │   │   ├── security/            IronClaw: SSRF, leak, prompt, audit

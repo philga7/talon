@@ -14,6 +14,7 @@ from app.memory.compressor import MemoryCompressor
 from app.memory.engine import MemoryEngine
 from app.memory.episodic import EpisodicStore
 from app.memory.working import WorkingMemoryStore
+from app.notifications.ntfy import NtfyClient
 from app.personas.registry import PersonaRegistry
 from app.scheduler.engine import TalonScheduler
 from app.sentinel.tree import EventRouter
@@ -42,6 +43,9 @@ _event_router: EventRouter | None = None
 
 # Integration manager — initialized at startup (Phase 7)
 _integration_manager: IntegrationManager | None = None
+
+# ntfy push notification client — initialized at startup (optional)
+_ntfy_client: NtfyClient | None = None
 
 # Persona registry — initialized at startup
 _persona_registry: PersonaRegistry | None = None
@@ -260,3 +264,26 @@ def get_integration_manager() -> IntegrationManager:
     if _integration_manager is None:
         raise RuntimeError("Integration manager not initialized")
     return _integration_manager
+
+
+def init_ntfy(settings: TalonSettings) -> NtfyClient | None:
+    """Initialize the ntfy client if configured. Returns None when unconfigured."""
+    global _ntfy_client
+    if not settings.ntfy_configured:
+        return None
+    _ntfy_client = NtfyClient(
+        base_url=settings.ntfy_url,
+        topic=settings.ntfy_topic,
+        username=settings.ntfy_username or None,
+        password=settings.ntfy_password or None,
+        token=settings.ntfy_token or None,
+    )
+    return _ntfy_client
+
+
+def get_ntfy_client() -> NtfyClient | None:
+    """Return the ntfy client, or None if not configured.
+
+    Callers must check for None before sending — ntfy is optional.
+    """
+    return _ntfy_client

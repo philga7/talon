@@ -20,6 +20,7 @@ Core responsibilities:
 - Execute skills (tools) via a dynamic hot-reload registry
 - Serve a real-time web UI over SSE
 - Bridge Discord, Slack, Telegram, and webhook integrations through a unified chat router
+- Push mobile/desktop notifications via a self-hosted ntfy instance
 - Run scheduled jobs and watch the filesystem for live config/skill changes
 
 ---
@@ -39,6 +40,7 @@ Core responsibilities:
 | Styling | TailwindCSS v4 + daisyUI v5 | No custom CSS unless unavoidable |
 | Realtime | Server-Sent Events (SSE) | `/api/sse/{session_id}` |
 | Integrations | Discord (discord.py), Slack (slack_bolt Socket Mode), Telegram (python-telegram-bot), Webhook | Conditional on secrets; routes through `ChatRouter` |
+| Push notifications | ntfy (`NtfyClient` — `backend/app/notifications/ntfy.py`) | Outbound-only; Basic auth; `notify` skill + `POST /api/notify`; optional — disabled when secrets absent |
 | Logging | structlog (JSON lines) | `data/logs/talon.jsonl` |
 | CLI | Typer + Rich | `talon` command: onboard, doctor, config, status |
 | Deployment | systemd (`talon.service`) + Docker Compose | Auxiliary services only in Docker |
@@ -60,6 +62,7 @@ Core responsibilities:
 │   │   ├── memory/              Compressor, episodic store, working memory
 │   │   ├── skills/              BaseSkill, registry, executor
 │   │   ├── integrations/        Discord, Slack, webhook, manager
+│   │   ├── notifications/       NtfyClient (push notifications)
 │   │   ├── scheduler/           APScheduler engine + built-in jobs
 │   │   ├── sentinel/            watchdog watcher + directory tree
 │   │   ├── cli/                 Typer CLI: onboard, doctor, config, status
@@ -168,7 +171,11 @@ All provider config lives in `config/providers.yaml`.
 - All chat, regardless of platform, routes through `ChatRouter`.
 - Persona resolution defaults to `main` when channel binding or `persona_id` is missing/unknown.
 - Integrations (Discord, Slack, Telegram, webhook) start conditionally based on secrets.
- Missing secrets = silently skipped; no crash, no error.
+  Missing secrets = silently skipped; no crash, no error.
+- ntfy push notifications are optional. `NtfyClient` is initialized at startup only when
+  `ntfy_url` and `ntfy_topic` secrets exist. `get_ntfy_client()` returns `None` when
+  unconfigured — callers must check before use. The `notify` skill and `POST /api/notify`
+  degrade gracefully (503 / SkillResult error) rather than crashing.
 - Security (IronClaw): SSRF guard blocks private IPs on egress.
   Leak scanner hashes vault secrets and scans outbound traffic.
   Prompt guard detects injection with tiered severity (Block/Warn/Review/Sanitize).
@@ -208,6 +215,7 @@ make dev   # starts backend (port 8088) + frontend (port 5173) concurrently
 - SSE stream: `curl 'http://localhost:8088/api/sse/test-session?prompt=hello'`
 - Skills: `curl http://localhost:8088/api/skills | jq`
 - Scheduler: `curl http://localhost:8088/api/scheduler/jobs | jq`
+- Push notification: `curl -X POST http://localhost:8088/api/notify -H 'Content-Type: application/json' -d '{"message":"test","title":"Talon","priority":"default"}'`
 - Backend tests: `make test`
 - Frontend tests: `make test-frontend`
 - Security tests: `make test-security`
