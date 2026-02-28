@@ -58,7 +58,9 @@ class TelegramIntegration(BaseIntegration):
             return
 
         try:
-            from telegram import Update  # pyright: ignore[reportMissingImports,reportAttributeAccessIssue]
+            from telegram import (
+                Update,  # pyright: ignore[reportMissingImports,reportAttributeAccessIssue]
+            )
             from telegram.ext import (  # pyright: ignore[reportMissingImports]
                 Application,
                 ContextTypes,
