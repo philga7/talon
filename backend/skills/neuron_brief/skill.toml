@@ -1,0 +1,9 @@
+[skill]
+name = "neuron_brief"
+version = "1.0.0"
+description = "Fetch and format The Neuron AI newsletter from Hostinger IMAP for briefing delivery"
+enabled = true
+
+[skill.permissions]
+network = true
+filesystem = false

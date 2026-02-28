@@ -63,6 +63,7 @@ Core responsibilities:
 │   │   ├── scheduler/           APScheduler engine + built-in jobs
 │   │   ├── sentinel/            watchdog watcher + directory tree
 │   │   ├── cli/                 Typer CLI: onboard, doctor, config, status
+│   │   ├── security/            IronClaw: SSRF, leak scanner, prompt guard, audit
 │   │   └── core/                Config, logging, middleware, security, errors
 │   ├── skills/                  User skill directories (hot-loaded)
 │   ├── tests/
@@ -85,7 +86,7 @@ Core responsibilities:
 │   ├── providers.yaml           LLM provider definitions
 │   ├── personas.yaml            Persona definitions + channel bindings
 │   └── secrets/                 Secrets directory (chmod 700, files chmod 600)
-├── scripts/                     Migration + utility scripts
+├── scripts/                     OpenClaw migration scripts (Phase 9)
 ├── deploy/                      systemd unit, nginx config, Dockerfile
 ├── docker-compose.yml
 └── Makefile
@@ -168,6 +169,10 @@ All provider config lives in `config/providers.yaml`.
 - Persona resolution defaults to `main` when channel binding or `persona_id` is missing/unknown.
 - Integrations (Discord, Slack, webhook) start conditionally based on secrets.
   Missing secrets = silently skipped; no crash, no error.
+- Security (IronClaw): SSRF guard blocks private IPs on egress.
+  Leak scanner hashes vault secrets and scans outbound traffic.
+  Prompt guard detects injection with tiered severity (Block/Warn/Review/Sanitize).
+  Audit log uses chained hashes for tamper evidence on tool calls.
 
 ---
 
@@ -205,4 +210,8 @@ make dev   # starts backend (port 8088) + frontend (port 5173) concurrently
 - Scheduler: `curl http://localhost:8088/api/scheduler/jobs | jq`
 - Backend tests: `make test`
 - Frontend tests: `make test-frontend`
+- Security tests: `make test-security`
+- Chaos tests: `make test-chaos`
+- LLM quality tests: `make test-eval` (real providers, costs tokens)
+- E2E tests: `make test-e2e` (requires `make dev` running)
 - CLI: `talon onboard`, `talon doctor`, `talon status`, `talon config show`

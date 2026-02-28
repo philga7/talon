@@ -1,0 +1,10 @@
+[skill]
+name = "bird"
+version = "1.0.0"
+description = "X/Twitter CLI for reading, searching, and posting via the bird binary"
+enabled = true
+requires_binary = "bird"
+
+[skill.permissions]
+network = true
+filesystem = false

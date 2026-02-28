@@ -1,143 +1,230 @@
 # Talon
 
-Self-hosted personal AI gateway for a single operator. Licensed under [AGPL v3](LICENSE). Inspired by OpenClaw (Node.js/TypeScript). Python/TypeScript stack on a single Hostinger VPS.
+A self-hosted personal AI gateway purpose-built for a single operator on a single server. Talon routes chat through a resilient multi-provider LLM gateway, maintains long-term memory with pgvector semantic search, executes tools via a hot-reloadable skill registry, and serves a real-time streaming web UI — all from one Python/TypeScript process on a VPS.
 
-**Status: Phases 1–8 complete, including multi-persona support.** Foundation, LLM gateway, three-tier memory, Skills + Chat Router, Frontend MVP, Scheduler + Sentinel, Integrations + persona-aware routing, and **CLI + Onboarding** are implemented. The `talon` CLI provides `onboard` (setup wizard), `doctor` (diagnostics), `config` (inspection), and `status` (unified health view).
+Inspired by [OpenClaw](https://github.com/openclaw/openclaw). Licensed under [AGPL v3](LICENSE).
 
-- **Stack:** FastAPI, PostgreSQL+pgvector, React+Vite+TypeScript, TailwindCSS v4+daisyUI v5, SSE streaming, LiteLLM, Zustand, APScheduler, watchdog, discord.py, slack_bolt, Typer+Rich CLI
-- **Personas:** Config-driven identity layers via `config/personas.yaml` (default `main`, optional channel-bound personas like `analyst`)
-- **Docs:** See [AGENTS.md](AGENTS.md) for full spec and [`.cursor/plans/`](.cursor/plans/) for phased implementation roadmap
-- **CI:** GitHub Actions runs backend lint (ruff, pyright) + tests, and frontend lint (ESLint) + type-check (tsc) + tests (Vitest) + build on all PRs.
+---
+
+## Why Talon Exists
+
+OpenClaw is a Node.js/TypeScript personal AI assistant designed for multi-device, multi-platform use with WebSocket-based control planes, companion apps (macOS/iOS/Android), and dozens of channel integrations. It is a powerful, broad tool.
+
+Talon takes a different approach: a **deep, single-server system** optimized for one operator who wants full control over memory, identity, and tool execution without the operational surface of a distributed architecture. Where OpenClaw goes wide (15+ channels, companion apps, voice wake, canvas, sandbox modes), Talon goes deep (three-tier persistent memory, persona-scoped identity, circuit-breaker resilience, security hardening, scheduled automation).
+
+### Talon vs OpenClaw
+
+| Concern | Talon | OpenClaw |
+|---|---|---|
+| **Runtime** | Python 3.12 (FastAPI) + TypeScript (React) | Node.js / TypeScript |
+| **Deployment** | Single VPS, systemd + Docker (aux only) | Local machine, Docker, or cloud; multi-device |
+| **Streaming** | Server-Sent Events (SSE) | WebSockets |
+| **Memory** | Three-tier: core matrix (Markdown compiled to JSON, 2k token budget) + episodic (pgvector cosine similarity) + working (per-session) | Session-based; workspace prompt files (AGENTS.md, SOUL.md) |
+| **Database** | PostgreSQL 16 + pgvector | None (file-based sessions) |
+| **Identity** | Multi-persona via `personas.yaml` — channel-bound, model-override per persona, scoped memory | Multi-agent routing — isolated sessions per agent |
+| **LLM routing** | LiteLLM with circuit breaker (3-fail open, 60s recovery), fallback chain, exponential backoff | Model config with failover profiles |
+| **Channels** | Discord, Slack, Webhook (3) | WhatsApp, Telegram, Slack, Discord, Google Chat, Signal, iMessage, Teams, WebChat, Matrix, Zalo (15+) |
+| **Companion apps** | Web UI only | macOS menu bar, iOS node, Android node |
+| **Voice** | Not supported | Voice Wake + Talk Mode (macOS/iOS/Android) |
+| **Security** | IronClaw: SSRF guard, leak scanner, prompt injection pipeline, per-skill HTTP allowlist, chained-hash audit log | DM pairing, sandbox mode (Docker) for non-main sessions |
+| **Skills** | `BaseSkill` ABC, TOML manifests, hot-reload via watchdog | SKILL.md-based, managed/bundled/workspace skills |
+| **Scheduling** | APScheduler (in-process, PostgreSQL jobstore) | Cron jobs via Gateway |
+| **CLI** | `talon onboard/doctor/status/config` (Typer + Rich) | `openclaw onboard/doctor/gateway/agent` |
+| **License** | AGPL v3 | MIT |
+
+**Choose Talon** if you want deep memory, persona-scoped identity, security hardening, and a Python-native stack on a single VPS you fully control.
+
+**Choose OpenClaw** if you need broad channel coverage (WhatsApp, Telegram, iMessage, Teams), companion apps, voice interaction, browser control, or multi-device deployment.
+
+---
+
+## Features
+
+### LLM Gateway
+Multi-provider fallback chain with per-provider circuit breakers. When a provider fails 3 times in 60 seconds the breaker opens, traffic routes to the next provider, and a recovery probe fires after 60 seconds. Retry uses exponential backoff with jitter. All provider config lives in `config/providers.yaml` — no provider strings in code. Powered by [LiteLLM](https://github.com/BerriAI/litellm) for model-agnostic routing.
+
+### Three-Tier Memory
+- **Core matrix** — human-editable Markdown files in `data/memories/<persona>/` compiled to a token-bounded JSON matrix (2,000 token budget). Priority-ranked: identity rows always included, capabilities included if budget allows.
+- **Episodic store** — conversation turns persisted to PostgreSQL with pgvector embeddings. Top-k cosine similarity retrieval per session. Archival job compacts entries older than 30 days.
+- **Working memory** — per-session in-process dict with idle GC after 30 minutes.
+
+The memory engine assembles all three tiers into the system prompt on every request. Introspectable via `/api/memory` and the frontend Memory tab.
+
+### Multi-Persona System
+Config-driven identity layers defined in `config/personas.yaml`. Each persona has its own core memory directory, optional model override, and channel bindings (e.g. specific Slack channels route to `analyst` while others route to `main`). Episodic memory is shared but persona-filtered. Unknown channels fall back to the default persona.
+
+### Skills Engine
+Self-contained tools implementing `BaseSkill` with TOML manifests. The `SkillRegistry` scans, loads, and namespaces tools for the LLM. The `SkillExecutor` wraps every call in `asyncio.wait_for(timeout=30s)` and returns `SkillResult` — skills never raise. `FileSentinel` (watchdog) hot-reloads skills on file change without restart.
+
+**Ported skills:** `searxng_search`, `yahoo_finance`, `weather_enhanced`, `hostinger_email`, `bird` (X/Twitter CLI), `neuron_brief` (AI newsletter fetcher).
+
+### Real-Time Web UI
+React 18 + TypeScript frontend with TailwindCSS v4 + daisyUI v5. Four tabs:
+- **Chat** — streamed responses via SSE with tool-use indicators
+- **Health** — per-provider circuit breaker status, memory stats
+- **Memory** — core matrix viewer with category collapsing, search/filter, priority badges
+- **Logs** — real-time application log stream with level filtering and auto-scroll
+
+Memory and Log panels are lazy-loaded via `React.lazy()` for fast initial load.
+
+### Integrations
+Discord (via discord.py), Slack (via slack_bolt Socket Mode), and generic webhook receiver. All route through the unified `ChatRouter`. Integrations start conditionally — if the secret file exists, the integration starts; if not, it silently skips. No crash, no error.
+
+### Scheduler + Sentinel
+APScheduler runs in-process with a PostgreSQL jobstore. Built-in jobs: memory recompile, LLM health sweep, log rotation, working memory GC, episodic archival, session cleanup. `FileSentinel` watches `data/memories/`, `backend/skills/`, and `config/` for file changes and dispatches events to the memory engine, skill registry, or config reloader.
+
+### Security (IronClaw)
+- **SSRF Guard** — blocks outbound requests to RFC-1918, loopback, link-local, and Docker bridge ranges before any egress. Configurable exceptions (e.g. SearXNG on localhost:8080).
+- **Leak Scanner** — SHA-256 hashes of all vault secrets; scans outbound request bodies and headers before dispatch. Blocks on match.
+- **Prompt Guard** — tiered severity engine (Block / Warn / Review / Sanitize) scanning user messages, tool responses, and memory retrieval for injection patterns.
+- **Skill HTTP Client** — per-skill `allowed_hosts` enforcement. Skills no longer self-construct HTTP clients.
+- **Audit Log** — chained-hash JSONL entries for every tool call. Inputs masked, outputs hashed. Chain provides tamper evidence.
+
+### CLI
+Typer + Rich CLI installed as `talon`:
+- `talon onboard` — interactive setup wizard (QuickStart / Advanced)
+- `talon doctor` — validates config, secrets permissions, DB connectivity, Docker services, systemd, disk space
+- `talon status` — unified view: API health, Docker, systemd, disk
+- `talon config show|get|validate` — config inspection (secrets redacted)
+
+### OpenClaw Migration
+Five scripts in `scripts/` for migrating from an existing OpenClaw installation:
+- `migrate_memories.py` — copies workspace Markdown to per-persona layout, compiles initial core matrices
+- `episodic_import.py` — parses daily memory logs and JSONL sessions into the episodic store
+- `migrate_skills.py` — verifies ported skills, generates stubs for skills needing manual porting
+- `migrate_config.py` — extracts secrets, generates `providers.yaml` and `personas.yaml`
+- `validate_migration.py` — 12-point checklist before decommissioning OpenClaw
+
+---
+
+## Stack
+
+| Layer | Technology |
+|---|---|
+| Backend API | FastAPI + Uvicorn (4 workers), Python 3.12 |
+| LLM routing | LiteLLM, circuit breaker + fallback chain |
+| Database | PostgreSQL 16 + pgvector (Docker), asyncpg |
+| ORM / migrations | SQLAlchemy 2 (async) + Alembic |
+| Frontend | React 18 + Vite + TypeScript |
+| Styling | TailwindCSS v4 + daisyUI v5 |
+| Streaming | Server-Sent Events (SSE) |
+| State management | Zustand |
+| Integrations | discord.py, slack_bolt, webhook |
+| Scheduler | APScheduler (AsyncIOScheduler) |
+| File watching | watchdog |
+| Logging | structlog (JSON lines) |
+| CLI | Typer + Rich |
+| Secrets | Pydantic BaseSettings + `config/secrets/` (chmod 700/600) |
+| Deployment | systemd + Docker Compose (auxiliary only) + nginx |
+
+---
 
 ## Quick Start
 
 ```bash
-# 1. Create virtualenv and install deps
+# Install backend
 cd backend && python -m venv .venv && .venv/bin/pip install -e .
 
-# 2. Install frontend deps
+# Install frontend
 cd ../frontend && npm install
 
-# 3. Create secrets (see config/SECRETS_SETUP.md)
+# Set up secrets
 mkdir -p config/secrets && chmod 700 config/secrets
 echo "your_postgres_password" > config/secrets/db_password
 chmod 600 config/secrets/db_password
 
-# 4. Configure at least one LLM provider (config/providers.yaml)
-#    and set the API key env var(s) it references (e.g. OPENAI_API_KEY).
+# Configure at least one LLM provider in config/providers.yaml
 
-# 5. Start services (Postgres + SearXNG) and migrate
+# Start Postgres + SearXNG, run migrations, launch
 make services-up
 make migrate
-
-# 6. Run backend + frontend (see "Running locally" below)
 make dev
-
-# 7. Verify
-make test           # backend tests
-make test-frontend  # frontend tests (Vitest)
 ```
 
-## Running locally
+Open **http://localhost:5173** for the web UI. Backend runs at **http://localhost:8088**.
 
-From the **project root** (the directory that contains `backend/`, `frontend/`, and `Makefile`):
+---
 
-1. **Start both backend and frontend** (one command; runs two processes):
-   ```bash
-   make dev
-   ```
-   This starts:
-   - **Backend**: Uvicorn on **http://localhost:8088**
-   - **Frontend**: Vite dev server on **http://localhost:5173** (proxies `/api/*` to the backend)
+## Running Locally
 
-2. **Open the UI** in your browser:
-   - **http://localhost:5173**
-   You’ll see the Talon chat UI (Chat tab) and a Health tab. All API requests from the UI go through the frontend dev server, which forwards them to the backend.
+```bash
+make dev            # backend (port 8088) + frontend (port 5173) concurrently
+make dev-backend    # backend only
+make dev-frontend   # frontend only
+```
 
-To run backend and frontend in **separate terminals** instead:
-- Terminal 1: `make dev-backend` → backend at http://localhost:8088
-- Terminal 2: `make dev-frontend` → frontend at http://localhost:5173  
-Still open the UI at **http://localhost:5173**.
+The Vite dev server proxies `/api/*` to the backend.
 
-### Available endpoints
+### API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/health` | Health status, provider circuit breakers, memory stats |
-| GET | `/api/memory` | Compiled core matrix JSON and memory stats (debug) |
-| POST | `/api/chat` | Send a message; full tool-calling loop, context from memory |
+| GET | `/api/health` | System health, provider circuit breakers, memory stats |
+| GET | `/api/memory` | Compiled core matrix and memory stats |
+| POST | `/api/chat` | Send a message (full tool-calling loop) |
 | GET | `/api/sse/{session_id}?prompt=…` | SSE stream: `token`, `tool_start`, `tool_result`, `done`, `error` |
-| GET | `/api/skills` | Loaded skills and tools (registry inspection) |
-| GET | `/api/scheduler/jobs` | Registered scheduled jobs and status |
-| POST | `/api/scheduler/jobs/{id}/trigger` | Manually trigger a scheduled job |
-| POST | `/api/integrations/webhook` | Generic webhook receiver (routes through ChatRouter) |
+| GET | `/api/skills` | Loaded skills and tools |
+| GET | `/api/scheduler/jobs` | Scheduled jobs and status |
+| POST | `/api/scheduler/jobs/{id}/trigger` | Manually trigger a job |
+| POST | `/api/integrations/webhook` | Webhook receiver (routes through ChatRouter) |
 
-**curl examples** (backend on port 8088; add `-H 'X-API-Key: your-key'` if auth is enabled):
+`/api/chat`, `/api/sse`, and webhook payloads accept optional `persona_id` (defaults to `main`). Interactive API docs at `http://localhost:8088/docs`.
+
+### CLI
 
 ```bash
-curl http://localhost:8088/api/health | jq
-curl http://localhost:8088/api/memory | jq
-curl http://localhost:8088/api/skills | jq
-curl http://localhost:8088/api/scheduler/jobs | jq
-curl -X POST http://localhost:8088/api/chat -H 'Content-Type: application/json' -d '{"message":"What is AAPL stock price?","session_id":"test","persona_id":"main"}'
-curl 'http://localhost:8088/api/sse/test-session?prompt=hello&persona_id=main'
-curl -X POST http://localhost:8088/api/scheduler/jobs/{job_id}/trigger
-curl -X POST http://localhost:8088/api/integrations/webhook -H 'Content-Type: application/json' -d '{"message":"hello","session_id":"webhook-test","persona_id":"main"}'
+talon onboard          # first-time setup wizard
+talon doctor           # system diagnostic
+talon status           # unified health view
+talon config show      # display config (secrets redacted)
 ```
 
-`/api/chat`, `/api/sse`, and webhook payloads accept optional `persona_id` (defaults to `main`).
+---
 
-Interactive API docs when the server is running: `http://localhost:8088/docs`.
+## Testing
 
-### CLI Commands
+```bash
+make test              # backend unit + integration (240+ tests, ~2s)
+make test-frontend     # Vitest component tests (23 tests)
+make test-security     # IronClaw security tests (34 tests)
+make test-chaos        # resilience: all-providers-down, timeout storms
+make test-eval         # LLM quality tests (real providers, costs tokens)
+make test-e2e          # Playwright E2E (requires make dev running)
+```
 
-After `pip install -e .` in `backend/`, the `talon` CLI is available:
+CI runs on GitHub Actions: ruff + pyright + pytest (backend), ESLint + tsc + Vitest + build (frontend).
 
-| Command | Description |
-|---------|-------------|
-| `talon onboard` | Interactive first-time setup wizard (QuickStart/Advanced) |
-| `talon doctor` | Diagnostic validator: config, secrets, DB, Docker, systemd, disk |
-| `talon status` | Unified status: API health, Docker, systemd, disk space |
-| `talon config show` | Display all config values (secrets redacted) |
-| `talon config get <key>` | Get a single config value |
-| `talon config validate` | Validate config parses without errors |
+---
 
-### Integrations (Discord, Slack, Webhook)
+## Integrations
 
-Integrations connect external platforms to the ChatRouter. They start automatically at boot if their secrets are present and skip silently if not.
-
-| Integration | Secrets needed | Install |
+| Integration | Secrets Required | Install |
 |---|---|---|
-| Discord | `config/secrets/discord_bot_token` | `pip install discord.py` (or `pip install -e .[discord]`) |
-| Slack | `config/secrets/slack_bot_token` + `config/secrets/slack_app_token` | `pip install slack-bolt` (or `pip install -e .[slack]`) |
-| Webhook | Optional `config/secrets/webhook_secret` for HMAC auth | Built-in |
+| Discord | `config/secrets/discord_bot_token` | `pip install -e .[discord]` |
+| Slack | `config/secrets/slack_bot_token` + `slack_app_token` | `pip install -e .[slack]` |
+| Webhook | Optional `config/secrets/webhook_secret` (HMAC) | Built-in |
 
-Integration status appears in `GET /api/health` under the `integrations` key.
+Integrations start if their secrets exist and skip silently if not.
 
-## Logs
+---
 
-- **HTTP I/O (nginx)** – see browser requests, SSE, and proxy errors:
-  ```bash
-  sudo tail -f /var/log/nginx/access.log
-  sudo tail -f /var/log/nginx/error.log
-  ```
+## OpenClaw Migration
 
-- **Talon app logs** – structured JSON for chat, skills, memory:
-  ```bash
-  cd /root/talon
-  tail -f data/logs/talon.jsonl | jq
-  ```
+```bash
+python scripts/migrate_memories.py --openclaw-dir ~/.openclaw
+python scripts/episodic_import.py --openclaw-dir ~/.openclaw   # add --include-sessions for full history
+python scripts/migrate_config.py --openclaw-dir ~/.openclaw
+python scripts/migrate_skills.py
+python scripts/validate_migration.py --skip-health
+```
 
-- **Service startup/crashes** – systemd journal:
-  ```bash
-  sudo journalctl -u talon.service -f
-  ```
+---
 
 ## VPS Deploy
 
-These steps assume the repo lives at `/root/talon` on the VPS (so nginx can serve `frontend/dist` from the path in `deploy/nginx.conf`). Docker and nginx must be installed.
+Target: single VPS (e.g. Hostinger KVM 4 — 16 GB RAM, 4 vCPU, 100 GB NVMe, Ubuntu 22.04). Docker and nginx must be installed.
 
-### 1. Clone and install
+### Install
 
 ```bash
 git clone https://github.com/philga7/talon.git /root/talon
@@ -146,91 +233,101 @@ python3 -m venv .venv && . .venv/bin/activate && pip install -e .
 cd /root/talon/frontend && npm install
 ```
 
-### 2. Configure secrets
+### Configure secrets
 
 ```bash
-cd /root/talon
 mkdir -p config/secrets && chmod 700 config/secrets
 echo "your_postgres_password" > config/secrets/db_password
 chmod 600 config/secrets/db_password
-# Add LLM API keys etc. as required by config/providers.yaml
+# Add LLM API keys as required by config/providers.yaml
 ```
 
-### 3. Start services, migrate, build frontend
+### Start services and build
 
 ```bash
-cd /root/talon
-docker compose up -d
+docker compose up -d     # Postgres + SearXNG
 make migrate
-make build
+make build               # frontend → frontend/dist/
 ```
 
-This starts Postgres (and SearXNG). The frontend is built to `frontend/dist/` (static files only; no dev server on the VPS).
-
-### 4. Run the backend and serve the UI
-
-**Backend** runs under systemd (Uvicorn on port 8088):
+### Run via systemd + nginx
 
 ```bash
-cp /root/talon/deploy/systemd/talon.service /etc/systemd/system/talon.service
-systemctl daemon-reload
-systemctl enable talon.service
-systemctl start talon.service
-```
+# Backend
+cp deploy/systemd/talon.service /etc/systemd/system/talon.service
+systemctl daemon-reload && systemctl enable --now talon.service
 
-**UI** is served by nginx (static files from `frontend/dist/`; `/api/*` proxied to the backend):
-
-```bash
-cp /root/talon/deploy/nginx.conf /etc/nginx/sites-available/talon
+# Frontend
+cp deploy/nginx.conf /etc/nginx/sites-available/talon
 ln -sf /etc/nginx/sites-available/talon /etc/nginx/sites-enabled/talon
 nginx -t && nginx -s reload
 ```
 
-If you cloned the repo somewhere other than `/root/talon`, edit `root` in `/etc/nginx/sites-available/talon` to point at `.../frontend/dist`.
+### Access
 
-### 5. Access the UI
+**SSH tunnel (recommended):** `ssh -L 8080:localhost:80 root@<vps-ip>` then open `http://localhost:8080`. Nothing exposed to the internet.
 
-You can reach the UI in two ways. **You do not need to expose the app on the public internet** unless you want to.
+**Public access:** Open ports 80/443 in the firewall and optionally add HTTPS via Let's Encrypt.
 
-**Option A — SSH tunnel (recommended for a single operator, same idea as OpenClaw)**  
-No public HTTP/HTTPS needed. From your **local machine**:
-
-```bash
-ssh -L 8080:localhost:80 root@<your-vps-ip>
-```
-
-Leave that session open (or use `-f -N` to background the tunnel). Then in your browser open **http://localhost:8080**. Your browser talks to your machine’s port 8080, which is forwarded over SSH to nginx (port 80) on the VPS. The UI and all `/api/*` requests go through the tunnel; nothing is exposed to the internet.
-
-**Option B — Public access**  
-If you want to open the UI from anywhere without an SSH tunnel, open port 80 (and optionally 443 for HTTPS) in your firewall and use **http://&lt;your-vps-ip&gt;/** or **http://&lt;your-domain&gt;/** in the browser. For production you’d typically add HTTPS (e.g. Let’s Encrypt).
-
-In both cases you get the same Talon chat UI (Chat and Health tabs). Nginx serves the frontend and proxies `/api/*` to the backend.
-
-**Verify backend** (on the VPS):
+### Stopping
 
 ```bash
-curl http://localhost:8088/api/health
-# Expect: {"status":"healthy", ...}
-```
-
-### Stopping / Tearing Down
-
-```bash
-cd /root/talon
-
-# Stop the Talon API (systemd)
 systemctl stop talon.service
-
-# Optionally disable Talon at boot
-systemctl disable talon.service
-
-# Stop supporting services (Postgres, SearXNG) but keep data
-docker compose down
-
-# Full teardown (removes containers + volumes; **data loss**)
-docker compose down -v
+docker compose down          # keep data
+docker compose down -v       # remove volumes (data loss)
 ```
 
 ---
 
-Copyright © 2026 Philip Clapper. All rights reserved. See [LICENSE](LICENSE) for terms of use.
+## Logs
+
+```bash
+tail -f data/logs/talon.jsonl | jq          # structured app logs
+sudo journalctl -u talon.service -f          # systemd startup/crash logs
+sudo tail -f /var/log/nginx/access.log       # HTTP/proxy logs
+```
+
+Or use the **Logs** tab in the web UI for real-time filtered log viewing.
+
+---
+
+## Project Layout
+
+```
+talon/
+├── backend/
+│   ├── app/
+│   │   ├── main.py              App factory + lifespan
+│   │   ├── dependencies.py      FastAPI DI
+│   │   ├── api/                 Route handlers
+│   │   ├── llm/                 Gateway, circuit breaker, retry
+│   │   ├── memory/              Compressor, episodic, working
+│   │   ├── skills/              BaseSkill, registry, executor
+│   │   ├── integrations/        Discord, Slack, webhook
+│   │   ├── scheduler/           APScheduler + jobs
+│   │   ├── sentinel/            watchdog + event router
+│   │   ├── security/            IronClaw: SSRF, leak, prompt, audit
+│   │   ├── personas/            PersonaRegistry
+│   │   ├── cli/                 Typer CLI
+│   │   └── core/                Config, logging, middleware, errors
+│   ├── skills/                  Skill directories (hot-loaded)
+│   └── tests/                   pytest suite (240+ tests)
+├── frontend/
+│   ├── src/                     React + TypeScript
+│   └── e2e/                     Playwright specs
+├── data/
+│   ├── memories/                Per-persona Markdown sources
+│   └── logs/                    Structured JSON logs
+├── config/
+│   ├── providers.yaml           LLM provider definitions
+│   ├── personas.yaml            Persona + channel bindings
+│   └── secrets/                 chmod 700/600
+├── scripts/                     Migration scripts
+├── deploy/                      systemd unit, nginx config
+├── docker-compose.yml           Postgres + SearXNG
+└── Makefile
+```
+
+---
+
+Copyright (c) 2026 Philip Clapper. All rights reserved. See [LICENSE](LICENSE) for terms of use.
