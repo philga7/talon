@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.chat import router as chat_router
 from app.api.health import router as health_router
 from app.api.memory import router as memory_router
+from app.api.notify import router as notify_router
 from app.api.scheduler import router as scheduler_router
 from app.api.skills import router as skills_router
 from app.api.sse import router as sse_router
@@ -19,6 +20,7 @@ from app.dependencies import (
     init_gateway,
     init_integrations,
     init_memory,
+    init_ntfy,
     init_persona_registry,
     init_registry,
     init_scheduler,
@@ -38,6 +40,7 @@ async def lifespan(app: FastAPI):
     )
     init_db(settings)
     init_gateway(settings)
+    init_ntfy(settings)
     personas = init_persona_registry(settings)
     init_memory(settings)
     init_registry(settings)
@@ -89,6 +92,7 @@ def create_app() -> FastAPI:
     app.include_router(sse_router)
     app.include_router(scheduler_router)
     app.include_router(webhook_router)
+    app.include_router(notify_router)
 
     return app
 

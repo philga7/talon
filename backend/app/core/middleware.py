@@ -45,6 +45,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._limits: dict[str, int] = {
             "/api/chat": llm_limit,
             "/api/sse": llm_limit,
+            "/api/notify": llm_limit,
         }
         self._default = default_limit
         self._window = window_seconds

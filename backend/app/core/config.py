@@ -79,6 +79,15 @@ class TalonSettings(BaseSettings):
         """Path to compiled core matrix JSON (output of compressor)."""
         return self.project_root / "data" / "core_matrix.json"
 
+    # ntfy push notifications — all optional; client is disabled if url or topic absent.
+    # Auth: supply either (ntfy_username + ntfy_password) for Basic auth, or ntfy_token for Bearer.
+    # Basic auth takes precedence when both are present.
+    ntfy_url: str = Field(default="", description="ntfy server base URL (from secrets)")
+    ntfy_topic: str = Field(default="", description="ntfy topic name (from secrets)")
+    ntfy_username: str = Field(default="", description="ntfy Basic-auth username (from secrets)")
+    ntfy_password: str = Field(default="", description="ntfy Basic-auth password (from secrets)")
+    ntfy_token: str = Field(default="", description="ntfy Bearer token (from secrets; used when no username/password)")
+
     @property
     def personas_config_path(self) -> Path:
         """Path to persona definitions."""
@@ -88,6 +97,11 @@ class TalonSettings(BaseSettings):
     def skills_dir(self) -> Path:
         """Directory containing skill subdirectories (skill.toml + main.py)."""
         return self.project_root / "backend" / "skills"
+
+    @property
+    def ntfy_configured(self) -> bool:
+        """True when both ntfy_url and ntfy_topic are set."""
+        return bool(self.ntfy_url and self.ntfy_topic)
 
 
 _settings: TalonSettings | None = None

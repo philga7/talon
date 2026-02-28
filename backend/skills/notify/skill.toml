@@ -1,0 +1,13 @@
+[skill]
+name = "notify"
+version = "1.0.0"
+description = "Send push notifications to the operator's mobile device via ntfy"
+enabled = true
+
+[skill.permissions]
+network = true
+filesystem = false
+# ntfy client is a pre-configured service dependency (like the LLM gateway); it does
+# not construct URLs from user input and bypasses SkillHTTPClient intentionally.
+# allowed_hosts documents the single permitted outbound host for audit/review purposes.
+allowed_hosts = ["ntfy.informedcrew.com"]
