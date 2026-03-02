@@ -42,7 +42,7 @@ Core responsibilities:
 | Integrations | Discord (discord.py), Slack (slack_bolt Socket Mode), Telegram (python-telegram-bot), Webhook | Conditional on secrets; routes through `ChatRouter` |
 | Push notifications | ntfy (`NtfyClient` — `backend/app/notifications/ntfy.py`) | Outbound-only; Basic auth; `notify` skill + `POST /api/notify`; optional — disabled when secrets absent |
 | Logging | structlog (JSON lines) | `data/logs/talon.jsonl` |
-| CLI | Typer + Rich | `talon` command: onboard, doctor, config, status |
+| CLI | Typer + Rich | `talon` command: onboard, doctor, config, status (onboard bootstraps secrets, provider config, and per-persona memory, including prompting for the main agent's name/role) |
 | Deployment | systemd (`talon.service`) + Docker Compose | Auxiliary services only in Docker |
 | Secrets | Pydantic `BaseSettings` with `secrets_dir` | `config/secrets/` chmod 700/600 |
 
