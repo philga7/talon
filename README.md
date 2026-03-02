@@ -85,7 +85,7 @@ APScheduler runs in-process with a PostgreSQL jobstore. Built-in jobs: memory re
 
 ### CLI
 Typer + Rich CLI installed as `talon`:
-- `talon onboard` — interactive setup wizard (QuickStart / Advanced)
+- `talon onboard` — interactive setup wizard (QuickStart / Advanced) that can create `config/secrets/`, guide you through initial LLM provider setup (OpenAI, Anthropic, Ollama, Ollama Cloud, custom), and bootstrap per-persona memory (including prompting for the main agent's name and role)
 - `talon doctor` — validates config, secrets permissions, DB connectivity, Docker services, systemd, disk space
 - `talon status` — unified view: API health, Docker, systemd, disk
 - `talon config show|get|validate` — config inspection (secrets redacted)
@@ -137,6 +137,7 @@ echo "your_postgres_password" > config/secrets/db_password
 chmod 600 config/secrets/db_password
 
 # Configure at least one LLM provider in config/providers.yaml
+# (or run `talon onboard` to generate an initial providers.yaml interactively)
 
 # Start Postgres + SearXNG, run migrations, launch
 make services-up
