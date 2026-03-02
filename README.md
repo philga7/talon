@@ -231,57 +231,93 @@ python scripts/validate_migration.py --skip-health
 
 Target: single VPS (e.g. Hostinger KVM 4 — 16 GB RAM, 4 vCPU, 100 GB NVMe, Ubuntu 22.04). Docker and nginx must be installed.
 
-### Install
+Assume Talon is checked out to `/root/talon`. If you use a different path, update the systemd unit accordingly.
+
+### One-time install
 
 ```bash
 git clone https://github.com/philga7/talon.git /root/talon
+
+# Backend
 cd /root/talon/backend
-python3 -m venv .venv && . .venv/bin/activate && pip install -e .
-cd /root/talon/frontend && npm install
+python3 -m venv .venv
+./.venv/bin/pip install -e .
+
+# Frontend
+cd /root/talon/frontend
+npm install
 ```
 
 ### Configure secrets
 
 ```bash
+cd /root/talon
 mkdir -p config/secrets && chmod 700 config/secrets
 echo "your_postgres_password" > config/secrets/db_password
 chmod 600 config/secrets/db_password
 # Add LLM API keys as required by config/providers.yaml
 ```
 
-### Start services and build
+### Build frontend and prepare services
 
 ```bash
-docker compose up -d     # Postgres + SearXNG
-make migrate
-make build               # frontend → frontend/dist/
+cd /root/talon
+make services-up     # Postgres + SearXNG (Docker)
+make migrate         # Alembic migrations
+make build           # frontend → frontend/dist/
 ```
 
 ### Run via systemd + nginx
 
 ```bash
-# Backend
-cp deploy/systemd/talon.service /etc/systemd/system/talon.service
-systemctl daemon-reload && systemctl enable --now talon.service
+cd /root/talon
 
-# Frontend
+# Backend (FastAPI + scheduler + integrations)
+cp deploy/systemd/talon.service /etc/systemd/system/talon.service
+systemctl daemon-reload
+systemctl enable --now talon.service
+
+# Frontend (nginx reverse proxy)
 cp deploy/nginx.conf /etc/nginx/sites-available/talon
 ln -sf /etc/nginx/sites-available/talon /etc/nginx/sites-enabled/talon
 nginx -t && nginx -s reload
 ```
 
-### Access
+### Stand up (start all services on VPS)
 
-**SSH tunnel (recommended):** `ssh -L 8080:localhost:80 root@<vps-ip>` then open `http://localhost:8080`. Nothing exposed to the internet.
-
-**Public access:** Open ports 80/443 in the firewall and optionally add HTTPS via Let's Encrypt.
-
-### Stopping
+From your Talon directory on the VPS (e.g. `/root/talon`):
 
 ```bash
-systemctl stop talon.service
-docker compose down          # keep data
-docker compose down -v       # remove volumes (data loss)
+cd /root/talon
+
+# 1) Infra (Postgres + SearXNG)
+make services-up
+
+# 2) Database migrations (safe to run; no-op if up-to-date)
+make migrate
+
+# 3) Backend + scheduler + integrations
+sudo systemctl restart talon.service
+
+# 4) Frontend / reverse proxy
+sudo nginx -t && sudo nginx -s reload
+
+# 5) Optional: verify health
+curl -s http://localhost:8088/api/health | python3 -m json.tool
+```
+
+### Tear down (stop services on VPS)
+
+```bash
+# Stop FastAPI backend + scheduler + integrations
+sudo systemctl stop talon.service
+
+# Stop Docker infra (keeps data)
+cd /root/talon
+make services-down
+
+# Optional: remove Docker volumes (DESTROYS data)
+docker compose down -v
 ```
 
 ---
