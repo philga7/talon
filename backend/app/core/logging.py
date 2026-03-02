@@ -1,8 +1,8 @@
 """structlog configuration and SecretMasker processor."""
 
+import logging
 from pathlib import Path
 from typing import Any
-import logging
 
 import structlog
 
