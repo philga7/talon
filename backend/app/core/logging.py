@@ -1,5 +1,6 @@
 """structlog configuration and SecretMasker processor."""
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -18,11 +19,30 @@ class SecretMasker:
         return event_dict
 
 
+_LEVEL_MAP: dict[str, int] = {
+    "CRITICAL": logging.CRITICAL,
+    "ERROR": logging.ERROR,
+    "WARNING": logging.WARNING,
+    "INFO": logging.INFO,
+    "DEBUG": logging.DEBUG,
+}
+
+
 def configure_logging(
     log_level: str = "INFO",
     log_file: Path | str | None = None,
 ) -> None:
     """Configure structlog with JSON output and SecretMasker."""
+    default_level = _LEVEL_MAP["INFO"]
+    min_level = _LEVEL_MAP.get(log_level.upper(), default_level)
+
+    def _filter_by_level(logger: object, method: str, event_dict: dict) -> dict:
+        level_name = str(event_dict.get("level", log_level)).upper()
+        event_level = _LEVEL_MAP.get(level_name, default_level)
+        if event_level < min_level:
+            raise structlog.DropEvent
+        return event_dict
+
     log_path = Path(log_file) if log_file else None
     if log_path:
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -33,7 +53,7 @@ def configure_logging(
 
     processors: list[Any] = [
         structlog.contextvars.merge_contextvars,
-        structlog.processors.filter_by_level,
+        _filter_by_level,
         structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
