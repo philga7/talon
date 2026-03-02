@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Any
+import logging
 
 import structlog
 
@@ -23,6 +24,14 @@ def configure_logging(
     log_file: Path | str | None = None,
 ) -> None:
     """Configure structlog with JSON output and SecretMasker."""
+    min_level = logging.getLevelName(log_level.upper())
+
+    def _filter_by_level(logger: object, method: str, event_dict: dict) -> dict:
+        level_name = str(event_dict.get("level", log_level)).upper()
+        if logging.getLevelName(level_name) < min_level:
+            raise structlog.DropEvent
+        return event_dict
+
     log_path = Path(log_file) if log_file else None
     if log_path:
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -33,7 +42,7 @@ def configure_logging(
 
     processors: list[Any] = [
         structlog.contextvars.merge_contextvars,
-        structlog.processors.filter_by_level,
+        _filter_by_level,
         structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
