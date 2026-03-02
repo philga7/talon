@@ -33,7 +33,7 @@ def configure_logging(
 
     processors: list[Any] = [
         structlog.contextvars.merge_contextvars,
-        structlog.stdlib.filter_by_level,
+        structlog.processors.filter_by_level,
         structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
