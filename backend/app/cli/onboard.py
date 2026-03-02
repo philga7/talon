@@ -107,17 +107,91 @@ class OnboardWizard:
         return True
 
     def _step_providers(self) -> bool:
-        """Verify or create providers.yaml."""
+        """Verify or create providers.yaml with at least one LLM provider."""
         p = self.prompter
         providers_path = self.project_root / "config" / "providers.yaml"
 
         p.progress("Checking LLM provider configuration")
 
         if providers_path.is_file():
-            p.note(f"providers.yaml exists at {providers_path}")
+            try:
+                import yaml  # type: ignore[reportMissingModuleSource]
+
+                data = yaml.safe_load(providers_path.read_text()) or {}
+                configured = data.get("providers", []) if isinstance(data, dict) else []
+                if configured:
+                    names = [
+                        pr.get("name", "unnamed")
+                        for pr in configured
+                        if isinstance(pr, dict)
+                    ]
+                    p.note(f"Providers configured: {', '.join(names)}")
+                    return True
+                p.note("providers.yaml exists but has no providers — add at least one before starting.")
+            except Exception:
+                p.note("providers.yaml exists (could not parse — edit manually)")
             return True
 
-        p.note("No providers.yaml found. A default will be created during install.")
+        if not p.confirm("Set up an LLM provider now?", default=True):
+            p.note("You must create config/providers.yaml before Talon can process chat.")
+            p.note("See the repository for the providers.yaml format.")
+            return True
+
+        provider_type = p.select(
+            "Provider type",
+            ["openai", "anthropic", "ollama", "ollama_cloud", "other"],
+            default="openai",
+        )
+        _default_models: dict[str, str] = {
+            "openai": "openai/gpt-4o-mini",
+            "anthropic": "anthropic/claude-3-5-haiku-20241022",
+            "ollama": "ollama/llama3.2",
+            "ollama_cloud": "ollama/llama3.2",
+            "other": "openai/gpt-4o-mini",
+        }
+        model = p.text(
+            "Model name",
+            default=_default_models.get(provider_type, "openai/gpt-4o-mini"),
+        )
+        # Every ProviderConfig requires a non-empty api_key_env; local Ollama
+        # uses OLLAMA_API_KEY which can safely be unset in the environment.
+        _key_envs: dict[str, str] = {
+            "openai": "OPENAI_API_KEY",
+            "anthropic": "ANTHROPIC_API_KEY",
+            "ollama": "OLLAMA_API_KEY",
+            "ollama_cloud": "OLLAMA_API_KEY",
+            "other": "LLM_API_KEY",
+        }
+        api_key_env = _key_envs.get(provider_type, "LLM_API_KEY")
+
+        if provider_type == "ollama":
+            p.note("Local Ollama: OLLAMA_API_KEY can be left unset or set to any string.")
+            p.note("Set OLLAMA_API_BASE to your Ollama host if not using localhost:11434.")
+        elif provider_type == "ollama_cloud":
+            p.note("Place your Ollama Cloud API key in config/secrets/ollama_api_key (chmod 600)")
+            p.note("  or set the OLLAMA_API_KEY environment variable")
+            p.note("Set OLLAMA_API_BASE to your Ollama Cloud endpoint URL.")
+        else:
+            secret_name = f"{provider_type}_api_key"
+            p.note(f"Place your API key in config/secrets/{secret_name} (chmod 600)")
+            p.note(f"  or set the {api_key_env} environment variable")
+
+        providers_path.parent.mkdir(parents=True, exist_ok=True)
+        lines = [
+            "---",
+            "# LLM provider configuration for Talon.",
+            "# API keys: place in config/secrets/<name>_api_key or set as env variable.",
+            "",
+            "providers:",
+            "  - name: primary",
+            f'    model: "{model}"',
+            f'    api_key_env: "{api_key_env}"',
+            "    timeout_seconds: 30",
+            "    max_retries: 3",
+            "",
+        ]
+        providers_path.write_text("\n".join(lines))
+        p.note(f"Created config/providers.yaml ({model})")
         return True
 
     def _step_database(self) -> bool:
@@ -188,11 +262,13 @@ class OnboardWizard:
         if md_files:
             p.note(f"{len(md_files)} memory source file(s) found")
         else:
+            agent_name = p.text("Agent name", default="Talon")
+            agent_role = p.text("Agent role/description", default="Personal AI assistant")
             identity_file = mem_dir / "identity.md"
             identity_file.write_text(
                 "# Identity\n\n"
-                "- Name: Talon\n"
-                "- Role: Personal AI assistant\n"
+                f"- Name: {agent_name}\n"
+                f"- Role: {agent_role}\n"
             )
             p.note("Created default identity.md in data/memories/main/")
 
