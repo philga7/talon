@@ -19,16 +19,27 @@ class SecretMasker:
         return event_dict
 
 
+_LEVEL_MAP: dict[str, int] = {
+    "CRITICAL": logging.CRITICAL,
+    "ERROR": logging.ERROR,
+    "WARNING": logging.WARNING,
+    "INFO": logging.INFO,
+    "DEBUG": logging.DEBUG,
+}
+
+
 def configure_logging(
     log_level: str = "INFO",
     log_file: Path | str | None = None,
 ) -> None:
     """Configure structlog with JSON output and SecretMasker."""
-    min_level = logging.getLevelName(log_level.upper())
+    default_level = _LEVEL_MAP["INFO"]
+    min_level = _LEVEL_MAP.get(log_level.upper(), default_level)
 
     def _filter_by_level(logger: object, method: str, event_dict: dict) -> dict:
         level_name = str(event_dict.get("level", log_level)).upper()
-        if logging.getLevelName(level_name) < min_level:
+        event_level = _LEVEL_MAP.get(level_name, default_level)
+        if event_level < min_level:
             raise structlog.DropEvent
         return event_dict
 
