@@ -157,7 +157,14 @@ class SkillRegistry:
             return resolved
         # Fallback: some LLM providers return "skill_tool" instead of "skill__tool".
         fallback = namespaced_tool_name.replace(TOOL_NAMESPACE_SEP, "_", 1)
-        return self._tool_to_skill.get(fallback)
+        resolved = self._tool_to_skill.get(fallback)
+        if resolved is not None:
+            return resolved
+        # Fallback: LLM returns only skill name (e.g. "searxng_search"); resolve to sole tool if unique.
+        for skill in self._skills:
+            if skill.name == namespaced_tool_name and len(skill.tools) == 1:
+                return (skill, skill.tools[0].name)
+        return None
 
     def list_skills(self) -> list[dict[str, Any]]:
         """List loaded skills with name, version, tool count."""
