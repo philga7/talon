@@ -166,6 +166,10 @@ class LLMGateway:
         }
 ```
 
+## Tool-call names
+
+LiteLLM returns `tool_calls[].function.name` as provided by the provider; it may match the names we send (`skill__tool`) or appear in a variant form (e.g. `skill_tool`). The **skill registry** is responsible for resolving whatever name is returned to `(skill, tool_name)`; see the Skills Engine plan (04) for the Registry ↔ LLM contract.
+
 ## SSE Streaming
 
 ```python
@@ -181,7 +185,11 @@ async def stream_chat(messages, gateway, registry, executor, memory_engine):
                 return
             msgs.append(response.as_assistant_message())
             for tc in response.tool_calls:
-                skill, tool_name = registry.get_skill_for_tool(tc.function.name)
+                resolved = registry.resolve(tc.function.name)
+                if not resolved:
+                    # return "Unknown tool" to LLM; registry logs tool_resolve_unknown
+                    ...
+                skill, tool_name = resolved
                 params = json.loads(tc.function.arguments)
                 yield json.dumps({"type": "tool_start", "name": tc.function.name,
                                   "input": params})

@@ -115,6 +115,17 @@ class StockQuoteSkill(BaseSkill):
             return SkillResult(tool_name="get_stock_price", success=False, error=str(e))
 ```
 
+## Registry ↔ LLM contract (via LiteLLM)
+
+The registry sends tools to LiteLLM with **namespaced** names: `{skill.name}__{tool.name}` (double underscore). The LLM returns tool calls with a `function.name` string. **LiteLLM and underlying providers may return that name unchanged or in a variant form** (e.g. `skill_tool` with one underscore, or only `skill` when the skill has one tool). The registry is the single place that must handle this:
+
+- **Send:** `tools_for_llm()` exposes names exactly as `skill__tool`.
+- **Receive:** `resolve(namespaced_tool_name)` accepts the exact name, then normalizes and tries accepted variants so tool calls still resolve. Unknown names are logged once (`tool_resolve_unknown`) and the API returns "Unknown tool" to the LLM.
+
+**When a variant is not handled:** (1) At runtime, the registry logs `tool_resolve_unknown` with `name`, `repr`, `known_count`, and a `sample` of registered names, then returns `None`; the API turns that into a tool result of `"Unknown tool: {name}"` for the LLM so the conversation does not crash. (2) To support the new variant, inspect the log (e.g. `grep tool_resolve_unknown data/logs/talon.jsonl` or stdout/journalctl), add a normalization or alias in `resolve()` in `backend/app/skills/registry.py`, add or extend a test in `backend/tests/test_skills/test_registry.py`, then deploy.
+
+Skill authors only define `tool.name` and implement `execute(tool_name, params)`; they do not deal with namespacing or provider quirks.
+
 ## registry.py
 
 ```python
@@ -178,9 +189,12 @@ class SkillRegistry:
     def tools_for_llm(self) -> list[dict]:
         return self._tools_flat
 
-    def get_skill_for_tool(self, namespaced_name: str) -> tuple[BaseSkill, str]:
-        skill_name, tool_name = namespaced_name.split("__", 1)
-        return self._skills[skill_name], tool_name
+    def resolve(self, namespaced_tool_name: str) -> tuple[BaseSkill, str] | None:
+        """Resolve the name returned by the LLM to (skill, tool_name). Normalizes
+        variants (e.g. skill_tool, or bare skill name when skill has one tool). Returns
+        None and logs tool_resolve_unknown when the name cannot be resolved."""
+        # Implementation: exact key, then alias skill_tool, then skill-only if single-tool.
+        ...
 ```
 
 ## Built-in Skills

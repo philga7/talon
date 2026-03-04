@@ -1,4 +1,10 @@
-"""Skill registry: scan directory, dynamic import, namespace tools for LiteLLM."""
+"""Skill registry: scan directory, dynamic import, namespace tools for LiteLLM.
+
+Registry ↔ LLM contract: we send tool names as skill__tool. LiteLLM/providers may
+return the same string or a variant (e.g. skill_tool or bare skill name). resolve()
+normalizes and maps any accepted variant to (skill, tool_name); on failure it logs
+tool_resolve_unknown and returns None. See .cursor/plans/04-talon-skills-engine.md.
+"""
 
 from __future__ import annotations
 
@@ -151,7 +157,12 @@ class SkillRegistry:
         return result
 
     def resolve(self, namespaced_tool_name: str) -> tuple[BaseSkill, str] | None:
-        """Return (skill, tool_name) for the namespaced tool name, or None."""
+        """Return (skill, tool_name) for the name returned by the LLM, or None.
+
+        Normalizes: strip whitespace; then exact match, then skill_tool alias,
+        then bare skill name when the skill has exactly one tool. Logs
+        tool_resolve_unknown when the name cannot be resolved.
+        """
         name = (namespaced_tool_name or "").strip()
         if not name:
             return None
