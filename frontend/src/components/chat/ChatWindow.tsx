@@ -19,6 +19,7 @@ export const ChatWindow: FC = () => {
     setError,
     setConnected,
     setPendingPrompt,
+    clearMessages,
   } = useChatStore()
 
   const handleEvent = useCallback(
@@ -51,12 +52,15 @@ export const ChatWindow: FC = () => {
 
   const handleSend = useCallback(
     (message: string) => {
+      // Clear any prior error bubbles (including transient provider failures)
+      // so a new request starts with a clean transcript.
+      clearMessages()
       addUserMessage(message)
       startAssistantMessage()
       setConnected(true)
       setPendingPrompt(message)
     },
-    [addUserMessage, startAssistantMessage, setConnected, setPendingPrompt],
+    [addUserMessage, startAssistantMessage, setConnected, setPendingPrompt, clearMessages],
   )
 
   const isStreaming = messages.at(-1)?.isStreaming ?? false

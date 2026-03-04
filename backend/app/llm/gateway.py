@@ -207,7 +207,11 @@ class LLMGateway:
             litellm_params["tools"] = request.tools
             litellm_params["tool_choice"] = "auto"
 
-        stream = cast(Any, litellm.acompletion(api_key=api_key, **litellm_params))
+        # NOTE: litellm.acompletion is an async function; for streaming it returns
+        # an async iterator. We must await it here before iterating, otherwise
+        # Python sees a coroutine and raises "'async for' requires an object with
+        # __aiter__ method, got coroutine".
+        stream = cast(Any, await litellm.acompletion(api_key=api_key, **litellm_params))
         # Accumulate tool_calls from delta chunks (OpenAI stream format).
         tool_calls_accum: dict[int, dict[str, Any]] = {}
         async for chunk in stream:
