@@ -110,6 +110,10 @@ class SkillRegistry:
             for tool in skill.tools:
                 ns_name = f"{skill.name}{TOOL_NAMESPACE_SEP}{tool.name}"
                 self._tool_to_skill[ns_name] = (skill, tool.name)
+                # Some providers normalize "skill__tool" to "skill_tool"; register alias.
+                alias = f"{skill.name}_{tool.name}"
+                if alias != ns_name:
+                    self._tool_to_skill[alias] = (skill, tool.name)
                 params = dict(tool.parameters)
                 if tool.required:
                     params["required"] = tool.required
@@ -148,7 +152,12 @@ class SkillRegistry:
 
     def resolve(self, namespaced_tool_name: str) -> tuple[BaseSkill, str] | None:
         """Return (skill, tool_name) for the namespaced tool name, or None."""
-        return self._tool_to_skill.get(namespaced_tool_name)
+        resolved = self._tool_to_skill.get(namespaced_tool_name)
+        if resolved is not None:
+            return resolved
+        # Fallback: some LLM providers return "skill_tool" instead of "skill__tool".
+        fallback = namespaced_tool_name.replace(TOOL_NAMESPACE_SEP, "_", 1)
+        return self._tool_to_skill.get(fallback)
 
     def list_skills(self) -> list[dict[str, Any]]:
         """List loaded skills with name, version, tool count."""

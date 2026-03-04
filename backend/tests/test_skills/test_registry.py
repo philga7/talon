@@ -51,6 +51,21 @@ def test_registry_resolve_returns_skill_and_tool() -> None:
     assert registry.resolve("unknown__tool") is None
 
 
+def test_registry_resolve_single_underscore_alias() -> None:
+    """Resolve accepts provider-normalized name (skill_tool) as alias of skill__tool."""
+    root = Path(__file__).resolve().parents[2]
+    skills_dir = root / "skills"
+    if not skills_dir.is_dir():
+        pytest.skip("backend/skills not present")
+    registry = SkillRegistry(skills_dir)
+    registry.scan()
+    resolved = registry.resolve("searxng_search_search")
+    assert resolved is not None
+    skill, tool_name = resolved
+    assert skill.name == "searxng_search"
+    assert tool_name == "search"
+
+
 def test_registry_empty_dir_returns_zero() -> None:
     """Scan of dir with no skill dirs returns 0."""
     import tempfile
