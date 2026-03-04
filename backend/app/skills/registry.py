@@ -152,18 +152,28 @@ class SkillRegistry:
 
     def resolve(self, namespaced_tool_name: str) -> tuple[BaseSkill, str] | None:
         """Return (skill, tool_name) for the namespaced tool name, or None."""
-        resolved = self._tool_to_skill.get(namespaced_tool_name)
+        name = (namespaced_tool_name or "").strip()
+        if not name:
+            return None
+        resolved = self._tool_to_skill.get(name)
         if resolved is not None:
             return resolved
         # Fallback: some LLM providers return "skill_tool" instead of "skill__tool".
-        fallback = namespaced_tool_name.replace(TOOL_NAMESPACE_SEP, "_", 1)
+        fallback = name.replace(TOOL_NAMESPACE_SEP, "_", 1)
         resolved = self._tool_to_skill.get(fallback)
         if resolved is not None:
             return resolved
         # Fallback: LLM returns only skill name (e.g. "searxng_search"); resolve to sole tool if unique.
         for skill in self._skills:
-            if skill.name == namespaced_tool_name and len(skill.tools) == 1:
+            if skill.name == name and len(skill.tools) == 1:
                 return (skill, skill.tools[0].name)
+        log.warning(
+            "tool_resolve_unknown",
+            name=name,
+            repr=repr(name),
+            known_count=len(self._tool_to_skill),
+            sample=list(self._tool_to_skill.keys())[:5],
+        )
         return None
 
     def list_skills(self) -> list[dict[str, Any]]:
