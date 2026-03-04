@@ -89,15 +89,19 @@ async def run_tool_loop(
             ],
         )
         request.messages = list(request.messages) + [assistant_msg]
-        for tc in tool_calls:
+        tools_sent = request.tools or []
+        for i, tc in enumerate(tool_calls):
             fn = (tc.get("function") or {}) if isinstance(tc, dict) else {}
-            name = fn.get("name") or ""
+            name = (fn.get("name") or "").strip()
+            # Ollama/LiteLLM can return tool_calls with empty function.name; use index as fallback
+            if not name and i < len(tools_sent):
+                name = (tools_sent[i].get("function") or {}).get("name") or ""
             args_str = fn.get("arguments") or "{}"
             try:
                 args = json.loads(args_str)
             except json.JSONDecodeError:
                 args = {}
-            log.info("tool_call", tool_name=name, repr=repr(name))
+            log.info("tool_call", tool_name=name, repr=repr(name), index=i, empty_from_provider=not (fn.get("name") or "").strip())
             resolved = registry.resolve(name)
             if not resolved:
                 tool_content = json.dumps({"error": f"Unknown tool: {name}"})

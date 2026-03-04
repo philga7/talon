@@ -14,7 +14,7 @@ dependencies = [
     "alembic>=1.14.0",
     "httpx>=0.28.0",
     "starlette>=0.41.0",
-    "litellm",
+    "litellm>=1.82.0",
     "pyyaml",
     "pgvector>=0.3.0",
     "tomli>=2.0.0",
