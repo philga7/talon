@@ -8,11 +8,13 @@ or Sweetistics API key in SWEETISTICS_API_KEY env var).
 from __future__ import annotations
 
 import asyncio
+import os
 import shutil
 from typing import Any
 
 import structlog
 
+from app.core.config import get_settings
 from app.skills.base import BaseSkill, SkillResult, ToolDefinition
 
 log = structlog.get_logger()
@@ -28,6 +30,7 @@ class BirdSkill(BaseSkill):
 
     def __init__(self) -> None:
         self._bird_path: str | None = None
+        self._env: dict[str, str] = {}
 
     async def on_load(self) -> None:
         self._bird_path = shutil.which("bird")
@@ -35,6 +38,16 @@ class BirdSkill(BaseSkill):
             log.info("bird_skill_loaded", binary=self._bird_path)
         else:
             log.warning("bird_skill_no_binary", msg="bird binary not found in PATH")
+
+        # Load optional auth cookies from Talon settings (config/secrets/).
+        settings = get_settings()
+        env: dict[str, str] = {}
+        if settings.bird_auth_token:
+            env["BIRD_AUTH_TOKEN"] = settings.bird_auth_token
+        if settings.bird_ct0:
+            env["BIRD_CT0"] = settings.bird_ct0
+        # Merge with current environment; bird CLI will read these if supported.
+        self._env = {**os.environ, **env}
 
     def health_check(self) -> bool:
         return self._bird_path is not None
@@ -160,6 +173,7 @@ class BirdSkill(BaseSkill):
                 *args,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=self._env or None,
             )
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=BIRD_TIMEOUT)
 

@@ -64,7 +64,7 @@ class SearxngSearchSkill(BaseSkill):
 
     async def _search(self, query: str, max_results: int) -> SkillResult:
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=10.0, headers={"User-Agent": "TalonSearXNG/1.0"}) as client:
                 resp = await client.get(
                     f"{self._base_url}/search",
                     params={"q": query, "format": "json"},
