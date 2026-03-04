@@ -97,6 +97,7 @@ async def run_tool_loop(
                 args = json.loads(args_str)
             except json.JSONDecodeError:
                 args = {}
+            log.info("tool_call", tool_name=name, repr=repr(name))
             resolved = registry.resolve(name)
             if not resolved:
                 tool_content = json.dumps({"error": f"Unknown tool: {name}"})
