@@ -38,6 +38,8 @@ describe("MessageBubble", () => {
   it("preserves whitespace in content", () => {
     render(<MessageBubble role="assistant" content={"line1\nline2"} />)
     const bubble = screen.getByText(/line1/)
-    expect(bubble).toHaveClass("whitespace-pre-wrap")
+    // The whitespace-pre-wrap class now lives on the outer bubble container,
+    // not on the markdown <p>; ensure the container has the class.
+    expect(bubble.closest(".chat-bubble")).toHaveClass("whitespace-pre-wrap")
   })
 })
