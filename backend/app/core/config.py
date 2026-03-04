@@ -79,6 +79,11 @@ class TalonSettings(BaseSettings):
         """Path to compiled core matrix JSON (output of compressor)."""
         return self.project_root / "data" / "core_matrix.json"
 
+    # Bird / X.com auth cookies for the bird CLI (optional; skill is disabled
+    # if the binary is missing, but these allow non-interactive auth).
+    bird_auth_token: str = Field(default="", description="X/Twitter auth_token cookie for bird CLI (from secrets)")
+    bird_ct0: str = Field(default="", description="X/Twitter ct0 cookie for bird CLI (from secrets)")
+
     # ntfy push notifications — all optional; client is disabled if url or topic absent.
     # Auth: supply either (ntfy_username + ntfy_password) for Basic auth, or ntfy_token for Bearer.
     # Basic auth takes precedence when both are present.
