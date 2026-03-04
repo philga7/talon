@@ -101,3 +101,6 @@ class NotifySkill(BaseSkill):
 
     def health_check(self) -> bool:
         return get_ntfy_client() is not None
+
+
+skill = NotifySkill()
