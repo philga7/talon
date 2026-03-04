@@ -64,10 +64,14 @@ describe("chatStore", () => {
     expect(msg.error).toBe("Provider failed")
   })
 
-  it("clears all messages", () => {
+  it("strips trailing error-only assistant message", () => {
     useChatStore.getState().addUserMessage("Hello")
     useChatStore.getState().startAssistantMessage()
-    useChatStore.getState().clearMessages()
-    expect(useChatStore.getState().messages).toHaveLength(0)
+    useChatStore.getState().setError("Provider failed")
+    useChatStore.getState().stripTrailingError()
+    const msgs = useChatStore.getState().messages
+    expect(msgs).toHaveLength(1)
+    expect(msgs[0].role).toBe("user")
+    expect(msgs[0].content).toBe("Hello")
   })
 })

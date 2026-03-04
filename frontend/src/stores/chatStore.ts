@@ -32,7 +32,7 @@ interface ChatStore {
   setError: (error: string) => void
   setConnected: (v: boolean) => void
   setPendingPrompt: (p: string | null) => void
-  clearMessages: () => void
+  stripTrailingError: () => void
 }
 
 function uid(): string {
@@ -126,5 +126,13 @@ export const useChatStore = create<ChatStore>((set) => ({
 
   setConnected: (isConnected) => set({ isConnected }),
   setPendingPrompt: (pendingPrompt) => set({ pendingPrompt }),
-  clearMessages: () => set({ messages: [], pendingPrompt: null }),
+  stripTrailingError: () =>
+    set((s) => {
+      const msgs = [...s.messages]
+      const last = msgs[msgs.length - 1]
+      if (last?.error && !last.content) {
+        msgs.pop()
+      }
+      return { messages: msgs }
+    }),
 }))

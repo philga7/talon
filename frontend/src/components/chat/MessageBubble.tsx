@@ -1,4 +1,6 @@
 import type { FC } from "react"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 import type { ToolEvent } from "../../stores/chatStore"
 import { Spinner } from "../shared/Spinner"
 
@@ -43,11 +45,15 @@ export const MessageBubble: FC<MessageBubbleProps> = ({
   return (
     <div className={`chat ${role === "user" ? "chat-end" : "chat-start"}`}>
       <div
-        className={`chat-bubble whitespace-pre-wrap ${
+        className={`chat-bubble whitespace-pre-wrap prose prose-sm max-w-none ${
           role === "user" ? "chat-bubble-primary" : ""
         }`}
       >
-        {content}
+        {role === "assistant" ? (
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+        ) : (
+          content
+        )}
         {isStreaming && !content && <Spinner size="sm" />}
         {tools?.map((t, i) => <ToolIndicator key={i} tool={t} />)}
       </div>
