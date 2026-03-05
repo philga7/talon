@@ -10,18 +10,25 @@ const MemoryViewer = lazy(() =>
   })),
 )
 
+const MemoryReview = lazy(() =>
+  import("./components/memory/MemoryReview").then((m) => ({
+    default: m.MemoryReview,
+  })),
+)
+
 const LogViewer = lazy(() =>
   import("./components/logs/LogViewer").then((m) => ({
     default: m.LogViewer,
   })),
 )
 
-type View = "chat" | "health" | "memory" | "logs"
+type View = "chat" | "health" | "memory" | "memoryReview" | "logs"
 
 const NAV_ITEMS: { key: View; label: string }[] = [
   { key: "chat", label: "Chat" },
   { key: "health", label: "Health" },
   { key: "memory", label: "Memory" },
+  { key: "memoryReview", label: "Memory Review" },
   { key: "logs", label: "Logs" },
 ]
 
@@ -62,6 +69,17 @@ export const App: FC = () => {
             }
           >
             <MemoryViewer />
+          </Suspense>
+        )}
+        {view === "memoryReview" && (
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center h-full">
+                <Spinner size="lg" />
+              </div>
+            }
+          >
+            <MemoryReview />
           </Suspense>
         )}
         {view === "logs" && (

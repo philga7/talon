@@ -54,7 +54,7 @@ def test_masks_secrets_in_inputs(audit_logger: AuditLogger) -> None:
         success=True,
     )
 
-    log_content = audit_logger._log_file.read_text()
+    log_content = audit_logger._log_file.read_text()  # pyright: ignore[reportPrivateUsage]
     assert "sk-secret123456" not in log_content
     assert "REDACTED" in log_content
 
@@ -77,11 +77,11 @@ def test_tampered_log_fails_verification(audit_logger: AuditLogger) -> None:
         success=True,
     )
 
-    lines = audit_logger._log_file.read_text().splitlines()
+    lines = audit_logger._log_file.read_text().splitlines()  # pyright: ignore[reportPrivateUsage]
     lines[0] = lines[0].replace('"s1"', '"tampered"')
-    audit_logger._log_file.write_text("\n".join(lines) + "\n")
+    audit_logger._log_file.write_text("\n".join(lines) + "\n")  # pyright: ignore[reportPrivateUsage]
 
-    valid, count = audit_logger.verify_chain()
+    valid, _ = audit_logger.verify_chain()
     assert valid is False
 
 

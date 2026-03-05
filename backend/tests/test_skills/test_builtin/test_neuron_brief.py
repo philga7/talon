@@ -11,8 +11,8 @@ from skills.neuron_brief.main import NeuronBriefSkill
 @pytest.fixture
 def skill() -> NeuronBriefSkill:
     s = NeuronBriefSkill()
-    s._email_user = "test@example.com"
-    s._email_password = "test-password"
+    s._email_user = "test@example.com"  # pyright: ignore[reportPrivateUsage]
+    s._email_password = "test-password"  # pyright: ignore[reportPrivateUsage]
     return s
 
 

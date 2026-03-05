@@ -37,6 +37,22 @@ export interface HealthResponse {
   memory: MemoryHealth
 }
 
+export interface MemoryProposal {
+  id: string
+  persona_id: string
+  category: string
+  key: string
+  value: string
+  priority: number
+  confidence: number
+  status: "pending" | "accepted" | "rejected"
+  source_session_id: string | null
+  source_entry_ids: string[]
+  source_excerpt: string
+  created_at: string
+  updated_at: string
+}
+
 export type SSEEvent =
   | { type: "token"; text: string }
   | { type: "tool_start"; tool: string; arguments: Record<string, unknown> }

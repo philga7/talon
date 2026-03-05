@@ -4,6 +4,8 @@ Each job is a plain async function. Dependencies are passed via kwargs
 at registration time (no closures, no globals).
 """
 
+# ruff: noqa=I001
+
 from __future__ import annotations
 
 import os
@@ -12,10 +14,24 @@ from typing import TYPE_CHECKING
 
 import structlog
 
+from app.core.config import get_settings
+from app.memory.curation import fetch_candidate_episodic_entries
+from app.memory.curator import curate_episodic_entries
+from app.memory.markdown_writer import write_suggested_markdown
+from app.memory.promotion import auto_promote_for_persona
+from app.memory.proposals import (
+    create_proposals,
+    facts_to_proposals,
+    get_last_curated_at,
+)
+
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
     from app.llm.gateway import LLMGateway
     from app.memory.engine import MemoryEngine
     from app.memory.working import WorkingMemoryStore
+    from app.personas.registry import PersonaRegistry
 
 log = structlog.get_logger()
 
@@ -95,6 +111,72 @@ async def session_cleanup() -> None:
     log.debug("job_session_cleanup", status="noop")
 
 
+async def memory_curate(
+    gateway: LLMGateway,
+    *,
+    session_factory: async_sessionmaker[AsyncSession],
+    persona_registry: PersonaRegistry,
+) -> None:
+    """Curate recent episodic entries into MemoryProposal records for all personas."""
+    try:
+        settings = get_settings()
+        if not settings.memory_curate_enabled:
+            log.debug("job_memory_curate_disabled")
+            return
+
+        personas = persona_registry.all_personas()
+        total_proposals = 0
+        total_auto_promoted = 0
+        async with session_factory() as db:
+            try:
+                for persona_id, persona in personas.items():
+                    last_curated = await get_last_curated_at(db, persona_id=persona_id)
+                    entries = await fetch_candidate_episodic_entries(
+                        db,
+                        persona_id=persona_id,
+                        since=last_curated,
+                    )
+                    if not entries:
+                        continue
+                    facts = await curate_episodic_entries(
+                        gateway,
+                        persona_id=persona_id,
+                        entries=entries,
+                        model_override=persona.model_override,
+                    )
+                    if not facts:
+                        continue
+                    payloads = facts_to_proposals(persona_id=persona_id, facts=facts)
+                    created = await create_proposals(db, proposals=payloads)
+                    total_proposals += len(created)
+                    if settings.memory_write_suggested and payloads:
+                        write_suggested_markdown(
+                            root_memories_dir=settings.memories_dir,
+                            persona_id=persona_id,
+                            proposals=payloads,
+                        )
+                    if settings.memory_auto_promote_enabled:
+                        accepted, _ = await auto_promote_for_persona(
+                            db,
+                            settings=settings,
+                            root_memories_dir=settings.memories_dir,
+                            persona_id=persona_id,
+                        )
+                        total_auto_promoted += accepted
+                await db.commit()
+            except Exception:  # noqa: BLE001
+                await db.rollback()
+                raise
+        log.info(
+            "job_memory_curate",
+            persona_count=len(personas),
+            proposals_created=total_proposals,
+            auto_promoted=total_auto_promoted,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.error("job_memory_curate_failed", error=str(exc))
+
+
 def register_builtin_jobs(
     scheduler: object,
     *,
@@ -102,6 +184,8 @@ def register_builtin_jobs(
     gateway: LLMGateway,
     working: WorkingMemoryStore,
     log_file: Path,
+    session_factory: async_sessionmaker[AsyncSession],
+    persona_registry: PersonaRegistry,
 ) -> None:
     """Register all built-in jobs on the scheduler.
 
@@ -126,3 +210,13 @@ def register_builtin_jobs(
     )
     sched.add_interval_job(episodic_archive, "episodic_archive", hours=24)
     sched.add_interval_job(session_cleanup, "session_cleanup", hours=1)
+    sched.add_interval_job(
+        memory_curate,
+        "memory_curate",
+        hours=3,
+        kwargs={
+            "gateway": gateway,
+            "session_factory": session_factory,
+            "persona_registry": persona_registry,
+        },
+    )
