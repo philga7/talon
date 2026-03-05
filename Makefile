@@ -18,7 +18,7 @@ dev: ## Start backend + frontend dev servers
 	wait
 
 dev-backend: ## Start backend only (uvicorn --reload)
-	cd $(BACKEND) && .venv/bin/python -m uvicorn app.main:app --reload --port 8088
+	cd $(BACKEND) && .venv/bin/python -m uvicorn app.main:app --reload --port 8088 --timeout-keep-alive 3600
 
 dev-frontend: ## Start frontend only (vite dev)
 	cd $(FRONTEND) && npm run dev
