@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import AsyncGenerator
 from pathlib import Path
@@ -85,6 +86,8 @@ class LLMGateway:
                     _op,
                     max_attempts=provider.max_retries,
                 )
+            except asyncio.CancelledError:
+                raise  # propagate request cancellation; do not treat as provider failure
             except BaseException as exc:  # noqa: BLE001 - deliberate catch
                 breaker.record_failure()
                 last_error = exc
@@ -122,6 +125,8 @@ class LLMGateway:
                     yield chunk
                 breaker.record_success()
                 return
+            except asyncio.CancelledError:
+                raise  # propagate request cancellation; do not treat as provider failure
             except BaseException as exc:  # noqa: BLE001 - deliberate catch
                 breaker.record_failure()
                 log.warning(
