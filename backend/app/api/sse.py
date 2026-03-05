@@ -22,6 +22,7 @@ from app.dependencies import (
 )
 from app.llm.gateway import LLMGateway
 from app.llm.models import ChatMessage, LLMRequest
+from app.llm.react_tools import parse_plain_text_tool_calls, strip_tool_blocks
 from app.memory.engine import MemoryEngine
 from app.personas.registry import PersonaRegistry
 from app.skills.executor import SkillExecutor
@@ -71,21 +72,33 @@ async def _event_stream(
         iteration = 0
         while iteration < MAX_SSE_ITERATIONS:
             iteration += 1
+            log.info("sse_tool_loop_iteration", iteration=iteration, max_steps=MAX_SSE_ITERATIONS)
             stream = gateway.stream(request)
             tool_calls_so_far: list[dict] | None = None
+            content_parts: list[str] = []
             async for chunk in stream:
                 if isinstance(chunk, tuple) and len(chunk) == 2 and chunk[0] == "tool_calls":
                     tool_calls_so_far = chunk[1]
                     break
                 if isinstance(chunk, str):
+                    content_parts.append(chunk)
                     yield _sse_event("token", chunk)
+            # ReAct fallback: no native tool_calls but plain text may contain <tool>...</tool>
+            assistant_content_for_msg = ""
+            if not tool_calls_so_far:
+                full_content = "".join(content_parts)
+                synthetic = parse_plain_text_tool_calls(full_content)
+                if synthetic:
+                    tool_calls_so_far = synthetic
+                    assistant_content_for_msg = strip_tool_blocks(full_content)
+                    log.info("react_tool_calls_parsed_sse", count=len(tool_calls_so_far))
             if not tool_calls_so_far:
                 yield _sse_event("done", {})
                 return
             # Append assistant message with tool_calls
             assistant_msg = ChatMessage(
                 role="assistant",
-                content="",
+                content=assistant_content_for_msg,
                 tool_calls=[
                     {
                         "id": tc.get("id", ""),
@@ -120,6 +133,7 @@ async def _event_stream(
                         tool_call_id=(tc.get("id") or ""),
                     )
                 ]
+        log.warning("sse_tool_loop_max_iterations", max_=MAX_SSE_ITERATIONS)
         yield _sse_event("done", {})
     except AllProvidersDown as e:
         log.warning("sse_all_providers_down", error=str(e))

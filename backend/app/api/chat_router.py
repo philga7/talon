@@ -11,6 +11,7 @@ from structlog import get_logger
 
 from app.llm.gateway import LLMGateway
 from app.llm.models import ChatMessage, LLMRequest, LLMResponse
+from app.llm.react_tools import parse_plain_text_tool_calls, strip_tool_blocks
 from app.memory.engine import MemoryEngine
 from app.skills.executor import SkillExecutor
 from app.skills.registry import SkillRegistry
@@ -84,11 +85,20 @@ async def run_tool_loop(
     iteration = 0
     while iteration < MAX_TURN_ITERATIONS:
         iteration += 1
+        log.info("tool_loop_iteration", iteration=iteration, max_steps=MAX_TURN_ITERATIONS)
         tool_calls = response.tool_calls
+        # ReAct fallback: model returned plain text with <tool>...</tool> instead of tool_calls
+        if (not tool_calls or not isinstance(tool_calls, list)) and (response.content or "").strip():
+            synthetic = parse_plain_text_tool_calls(response.content)
+            if synthetic:
+                tool_calls = synthetic
+                log.info("react_tool_calls_parsed", count=len(tool_calls), from_content=True)
         if not tool_calls or not isinstance(tool_calls, list):
             return response
-        # Append assistant message (content may be empty)
+        # Append assistant message (content may be empty); strip <tool> blocks when from ReAct
         assistant_content = response.content or ""
+        if tool_calls and any(tc.get("id", "").startswith("react-") for tc in tool_calls):
+            assistant_content = strip_tool_blocks(assistant_content)
         # OpenAI format: assistant message with tool_calls
         assistant_msg = ChatMessage(
             role="assistant",
@@ -105,7 +115,7 @@ async def run_tool_loop(
         request.messages = list(request.messages) + [assistant_msg]
         tools_sent = request.tools or []
         for i, tc in enumerate(tool_calls):
-            fn = (tc.get("function") or {}) if isinstance(tc, dict) else {}
+            fn = tc.get("function") or {}
             name = (fn.get("name") or "").strip()
             args_str = fn.get("arguments") or "{}"
             try:

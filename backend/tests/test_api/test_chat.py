@@ -117,3 +117,84 @@ async def test_chat_tool_loop_returns_final_response(client: AsyncClient) -> Non
         app.dependency_overrides.pop(get_gateway, None)
         app.dependency_overrides.pop(get_registry, None)
         app.dependency_overrides.pop(get_executor, None)
+
+
+@pytest.mark.asyncio
+async def test_chat_react_plain_text_tool_calls_run_loop(client: AsyncClient) -> None:
+    """When gateway returns content with <tool>...</tool> and no tool_calls, ReAct fallback runs tools."""
+    from app.dependencies import get_executor, get_registry
+    from app.skills.base import BaseSkill, SkillResult, ToolDefinition
+
+    class FakeSkill(BaseSkill):
+        name = "fake"
+        version = "1.0"
+
+        @property
+        def tools(self) -> list[ToolDefinition]:
+            return [
+                ToolDefinition(
+                    name="search",
+                    description="Search",
+                    parameters={"type": "object"},
+                    required=["query"],
+                )
+            ]
+
+        async def execute(self, tool_name: str, params: dict) -> SkillResult:
+            return SkillResult(tool_name=tool_name, success=True, data={"results": ["a", "b"]})
+
+    fake_skill = FakeSkill()
+    fake_registry = MagicMock()
+    fake_registry.tools_for_llm.return_value = [
+        {
+            "type": "function",
+            "function": {
+                "name": "searxng_search__search",
+                "description": "Search",
+                "parameters": {},
+            },
+        },
+    ]
+    fake_registry.resolve.return_value = (fake_skill, "search")
+
+    fake_executor = MagicMock()
+    fake_executor.run = AsyncMock(
+        return_value=SkillResult(tool_name="search", success=True, data={"results": ["a", "b"]})
+    )
+
+    # First response: plain text with <tool> block, no tool_calls (Ollama Cloud / ReAct style).
+    # Second response: final answer after tool result.
+    fake_gateway = AsyncMock()
+    fake_gateway.complete.side_effect = [
+        LLMResponse(
+            content='I will search. <tool>{"name": "searxng_search__search", "args": {"query": "test"}}</tool>',
+            provider="primary",
+            tool_calls=None,
+            tokens={"total_tokens": 5},
+        ),
+        LLMResponse(
+            content="Here are the results.",
+            provider="primary",
+            tool_calls=None,
+            tokens={"total_tokens": 10},
+        ),
+    ]
+
+    app.dependency_overrides[get_gateway] = lambda: fake_gateway
+    app.dependency_overrides[get_registry] = lambda: fake_registry
+    app.dependency_overrides[get_executor] = lambda: fake_executor
+
+    try:
+        response = await client.post(
+            "/api/chat",
+            json={"message": "search for test", "session_id": "test-chat-react-session"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["content"] == "Here are the results."
+        assert fake_gateway.complete.await_count == 2
+        fake_executor.run.assert_awaited_once()
+    finally:
+        app.dependency_overrides.pop(get_gateway, None)
+        app.dependency_overrides.pop(get_registry, None)
+        app.dependency_overrides.pop(get_executor, None)
