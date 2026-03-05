@@ -38,7 +38,7 @@ Core responsibilities:
 | File watching | watchdog | Hot-reload for skills + config |
 | Frontend | React 18 + Vite + TypeScript | `frontend/` directory |
 | Styling | TailwindCSS v4 + daisyUI v5 | No custom CSS unless unavoidable |
-| Realtime | Server-Sent Events (SSE) | `/api/sse/{session_id}` |
+| Realtime | Server-Sent Events (SSE) | `/api/sse/{session_id}` (streams tokens & tool events; final SSE turn is persisted to episodic memory and exposed via `/api/chat/history` for UI reload) |
 | Integrations | Discord (discord.py), Slack (slack_bolt Socket Mode), Telegram (python-telegram-bot), Webhook | Conditional on secrets; routes through `ChatRouter` |
 | Push notifications | ntfy (`NtfyClient` — `backend/app/notifications/ntfy.py`) | Outbound-only; Basic auth; `notify` skill + `POST /api/notify`; optional — disabled when secrets absent |
 | Logging | structlog (JSON lines) | `data/logs/talon.jsonl` |

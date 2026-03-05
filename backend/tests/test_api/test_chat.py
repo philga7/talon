@@ -23,6 +23,30 @@ async def test_chat_history_empty_session(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_chat_history_includes_created_at(client: AsyncClient) -> None:
+    """GET /api/chat/history returns role, content, and created_at for each turn."""
+    # Create one turn via chat endpoint.
+    response = await client.post(
+        "/api/chat",
+        json={"message": "hello", "session_id": "history-created-at-session"},
+    )
+    assert response.status_code == 200
+
+    history = await client.get(
+        "/api/chat/history",
+        params={"session_id": "history-created-at-session"},
+    )
+    assert history.status_code == 200
+    data = history.json()
+    assert "turns" in data
+    assert len(data["turns"]) >= 2
+    for turn in data["turns"]:
+        assert "role" in turn
+        assert "content" in turn
+        assert "created_at" in turn
+
+
+@pytest.mark.asyncio
 async def test_chat_uses_gateway_complete(client: AsyncClient) -> None:
     """POST /api/chat delegates to LLM gateway and returns response."""
     fake_gateway = AsyncMock()
