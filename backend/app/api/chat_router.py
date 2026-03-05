@@ -29,6 +29,15 @@ def _tool_result_content(result: Any) -> str:
     return json.dumps(result, default=str)
 
 
+def _infer_tool_name_for_empty(args: dict[str, Any], tools_sent: list[dict[str, Any]], index: int) -> str:
+    """When provider returns empty tool name: infer from args. Internet search = SearXNG."""
+    if "query" in args and "url" not in args:
+        return "searxng_search__search"
+    if index < len(tools_sent):
+        return (tools_sent[index].get("function") or {}).get("name") or ""
+    return ""
+
+
 async def build_messages(
     *,
     session_id: str,
@@ -93,14 +102,14 @@ async def run_tool_loop(
         for i, tc in enumerate(tool_calls):
             fn = (tc.get("function") or {}) if isinstance(tc, dict) else {}
             name = (fn.get("name") or "").strip()
-            # Ollama/LiteLLM can return tool_calls with empty function.name; use index as fallback
-            if not name and i < len(tools_sent):
-                name = (tools_sent[i].get("function") or {}).get("name") or ""
             args_str = fn.get("arguments") or "{}"
             try:
                 args = json.loads(args_str)
             except json.JSONDecodeError:
                 args = {}
+            # Ollama/LiteLLM can return empty function.name: infer from args (web search → SearXNG), else by index
+            if not name:
+                name = _infer_tool_name_for_empty(args, tools_sent, i)
             empty_from_provider = not (fn.get("name") or "").strip()
             log.info(
                 "tool_call",
