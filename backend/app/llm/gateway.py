@@ -129,11 +129,12 @@ class LLMGateway:
                 raise  # propagate request cancellation; do not treat as provider failure
             except BaseException as exc:  # noqa: BLE001 - deliberate catch
                 breaker.record_failure()
+                err_msg = str(exc).strip() or f"{type(exc).__name__}(no message)"
                 log.warning(
                     "llm_provider_stream_error",
                     provider=provider.name,
                     model=provider.model,
-                    error=str(exc),
+                    error=err_msg,
                 )
                 continue
 
@@ -245,7 +246,10 @@ class LLMGateway:
                     acc["id"] = tc["id"]
                 fn = tc.get("function") or {}
                 if fn.get("name"):
-                    acc["function"]["name"] = (acc["function"]["name"] or "") + fn["name"]
+                    current_name = acc["function"]["name"] or ""
+                    # Some providers resend the full name in later deltas; avoid duplicating.
+                    if not current_name.endswith(fn["name"]):
+                        acc["function"]["name"] = current_name + fn["name"]
                 if fn.get("arguments"):
                     acc["function"]["arguments"] = (acc["function"]["arguments"] or "") + fn[
                         "arguments"
