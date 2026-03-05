@@ -65,6 +65,7 @@ markers = [
 [tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
+include = ["app"]
 exclude = ["alembic"]
 reportMissingImports = false
 reportMissingTypeStubs = false
