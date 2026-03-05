@@ -30,10 +30,10 @@ export const LogViewer: FC = () => {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/health")
+      const res = await fetch("/api/logs")
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const health = (await res.json()) as Record<string, unknown>
-      const logData = health["recent_logs"] as LogEntry[] | undefined
+      const data = (await res.json()) as { recent_logs?: LogEntry[] }
+      const logData = data.recent_logs
 
       if (logData && Array.isArray(logData)) {
         setEntries(logData.slice(-MAX_ENTRIES))
