@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.chat import router as chat_router
 from app.api.health import router as health_router
+from app.api.logs import router as logs_router
 from app.api.memory import router as memory_router
 from app.api.memory_review import router as memory_review_router
 from app.api.notify import router as notify_router
@@ -87,6 +88,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health_router)
+    app.include_router(logs_router)
     app.include_router(memory_router)
     app.include_router(memory_review_router)
     app.include_router(chat_router)
