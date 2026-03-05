@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """Migrate OpenClaw memory files to Talon's per-persona memory layout.
 
-Sources:
-  - Root Markdown files: ~/.openclaw/workspace/ (IDENTITY.md, MEMORY.md, etc.)
-  - Topic notes: ~/.openclaw/workspace/logs/ (ai-intel.md, fork-roadmap.md, etc.)
+Sources: Root Markdown files (IDENTITY.md, MEMORY.md, etc.) and topic notes (logs/*.md)
+from each OpenClaw workspace. One workspace path per persona.
 
-Destination:
-  - data/memories/main/  — primary persona
-  - data/memories/analyst/ — analyst persona (copy of same sources)
-
-After copying, runs MemoryCompressor to produce initial core_matrix.json per persona.
+Destination: data/memories/<persona_id>/ for each persona. After copying,
+runs MemoryCompressor to produce core_matrix.json (main) or core_matrix_<id>.json.
 
 Usage:
+  # One or more personas; each maps persona_id -> OpenClaw workspace path:
+  python scripts/migrate_memories.py --persona main:~/.openclaw/workspace \\
+    --persona analyst:~/.openclaw/workspace-analyst [--talon-root .]
+
+  # Backward compat: default main from ~/.openclaw/workspace if no --persona:
   python scripts/migrate_memories.py [--openclaw-dir ~/.openclaw] [--talon-root .]
 """
 
@@ -114,13 +115,31 @@ def compile_matrix(persona_id: str, memories_dir: Path, talon_root: Path) -> Non
     print(f"  Compiled {persona_id} matrix: {out_path} ({matrix['token_count']} tokens)")
 
 
+def _parse_persona_spec(spec: str) -> tuple[str, Path]:
+    """Parse 'persona_id:path' and return (persona_id, Path)."""
+    if ":" not in spec:
+        raise ValueError(f"Invalid --persona spec (expected id:path): {spec!r}")
+    pid, path_str = spec.split(":", 1)
+    pid = pid.strip()
+    if not pid:
+        raise ValueError(f"Invalid --persona spec (empty persona id): {spec!r}")
+    return (pid, Path(path_str).expanduser().resolve())
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Migrate OpenClaw memories to Talon")
+    parser.add_argument(
+        "--persona",
+        action="append",
+        metavar="ID:PATH",
+        default=None,
+        help="Map persona ID to OpenClaw workspace path (repeatable). e.g. main:~/.openclaw/workspace",
+    )
     parser.add_argument(
         "--openclaw-dir",
         type=Path,
         default=Path.home() / ".openclaw",
-        help="OpenClaw base directory (default: ~/.openclaw)",
+        help="Used only when no --persona given: default workspace is openclaw-dir/workspace for main",
     )
     parser.add_argument(
         "--talon-root",
@@ -131,17 +150,36 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true", help="Show actions without executing")
     args = parser.parse_args()
 
-    workspace = args.openclaw_dir / "workspace"
-    if not workspace.is_dir():
-        print(f"ERROR: OpenClaw workspace not found at {workspace}")
-        sys.exit(1)
+    workspaces: dict[str, Path] = {}
+    if args.persona:
+        for spec in args.persona:
+            try:
+                pid, path = _parse_persona_spec(spec)
+                if pid in workspaces:
+                    print(f"WARNING: Overwriting workspace for persona '{pid}'")
+                workspaces[pid] = path
+            except ValueError as e:
+                print(f"ERROR: {e}")
+                sys.exit(1)
+    else:
+        workspace_main = (args.openclaw_dir / "workspace").resolve()
+        if not workspace_main.is_dir():
+            print(f"ERROR: OpenClaw workspace not found at {workspace_main}")
+            sys.exit(1)
+        workspaces["main"] = workspace_main
+
+    for persona_id, workspace in workspaces.items():
+        if not workspace.is_dir():
+            print(f"ERROR: Workspace not found for persona '{persona_id}': {workspace}")
+            sys.exit(1)
 
     talon_root: Path = args.talon_root
     memories_base = talon_root / "data" / "memories"
 
-    for persona_id in ("main", "analyst"):
+    for persona_id in sorted(workspaces.keys()):
+        workspace = workspaces[persona_id]
         dest = memories_base / persona_id
-        print(f"\n--- Migrating memories for persona '{persona_id}' -> {dest}")
+        print(f"\n--- Migrating memories for persona '{persona_id}' from {workspace} -> {dest}")
         copied = copy_memories(workspace, dest, dry_run=args.dry_run)
         if not copied:
             print("  WARNING: No files copied")
