@@ -86,8 +86,8 @@ class LLMGateway:
                     _op,
                     max_attempts=provider.max_retries,
                 )
-            except asyncio.CancelledError:
-                raise  # propagate request cancellation; do not treat as provider failure
+            except (asyncio.CancelledError, GeneratorExit):
+                raise  # propagate cancellation/close; do not treat as provider failure
             except BaseException as exc:  # noqa: BLE001 - deliberate catch
                 breaker.record_failure()
                 last_error = exc
@@ -125,8 +125,8 @@ class LLMGateway:
                     yield chunk
                 breaker.record_success()
                 return
-            except asyncio.CancelledError:
-                raise  # propagate request cancellation; do not treat as provider failure
+            except (asyncio.CancelledError, GeneratorExit):
+                raise  # propagate cancellation/close; do not treat as provider failure
             except BaseException as exc:  # noqa: BLE001 - deliberate catch
                 breaker.record_failure()
                 err_msg = str(exc).strip() or f"{type(exc).__name__}(no message)"
