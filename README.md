@@ -56,6 +56,8 @@ Config-driven identity layers defined in `config/personas.yaml`. Each persona ha
 ### Skills Engine
 Self-contained tools implementing `BaseSkill` with TOML manifests. The `SkillRegistry` scans, loads, and namespaces tools for the LLM. The `SkillExecutor` wraps every call in `asyncio.wait_for(timeout=30s)` and returns `SkillResult` — skills never raise. `FileSentinel` (watchdog) hot-reloads skills on file change without restart.
 
+**Tool calling:** The chat and SSE paths run a tool loop (max 10 steps) using either native LLM `tool_calls` or a **ReAct-style fallback**: when a model returns plain text containing `<tool>{"name": "...", "args": {...}}</tool>` instead of a tool_calls array (e.g. Ollama Cloud, GLM-5), Talon parses these blocks, executes the skills, and re-injects results so tools like SearXNG work even when the provider’s function-calling is unreliable. Each iteration is logged for observability.
+
 **Ported skills:** `searxng_search`, `yahoo_finance`, `weather_enhanced`, `hostinger_email`, `bird` (X/Twitter CLI), `neuron_brief` (AI newsletter fetcher), `notify` (push notifications via ntfy).
 
 ### Real-Time Web UI
@@ -343,7 +345,7 @@ talon/
 │   │   ├── main.py              App factory + lifespan
 │   │   ├── dependencies.py      FastAPI DI
 │   │   ├── api/                 Route handlers
-│   │   ├── llm/                 Gateway, circuit breaker, retry
+│   │   ├── llm/                 Gateway, circuit breaker, retry, react_tools (plain-text tool parsing)
 │   │   ├── memory/              Compressor, episodic, working
 │   │   ├── skills/              BaseSkill, registry, executor
 │   │   ├── integrations/        Discord, Slack, webhook

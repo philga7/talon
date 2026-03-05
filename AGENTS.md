@@ -58,7 +58,7 @@ Core responsibilities:
 │   │   ├── dependencies.py      FastAPI DI: get_db, get_gateway, get_memory, etc.
 │   │   ├── models/              SQLAlchemy ORM models
 │   │   ├── api/                 Route handlers (chat.py, sse.py, health.py, ...)
-│   │   ├── llm/                 LLM gateway, circuit breaker, providers
+│   │   ├── llm/                 LLM gateway, circuit breaker, providers, react_tools (ReAct plain-text tool parsing)
 │   │   ├── memory/              Compressor, episodic store, working memory
 │   │   ├── skills/              BaseSkill, registry, executor
 │   │   ├── integrations/        Discord, Slack, webhook, manager
@@ -176,6 +176,11 @@ All provider config lives in `config/providers.yaml`.
   `ntfy_url` and `ntfy_topic` secrets exist. `get_ntfy_client()` returns `None` when
   unconfigured — callers must check before use. The `notify` skill and `POST /api/notify`
   degrade gracefully (503 / SkillResult error) rather than crashing.
+- **Tool execution** supports both native LLM `tool_calls` and a ReAct-style fallback:
+  when the model returns plain text with `<tool>{"name": "...", "args": {...}}</tool>`
+  (e.g. Ollama Cloud, GLM-5), `backend/app/llm/react_tools.py` parses it and the same
+  tool loop runs (skills executed, results re-injected). Max 10 steps per request;
+  each iteration is logged (`tool_loop_iteration` / `sse_tool_loop_iteration`).
 - Security (IronClaw): SSRF guard blocks private IPs on egress.
   Leak scanner hashes vault secrets and scans outbound traffic.
   Prompt guard detects injection with tiered severity (Block/Warn/Review/Sanitize).
