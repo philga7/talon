@@ -18,6 +18,8 @@ export interface Message {
   createdAt: Date
 }
 
+export const CHAT_SESSION_STORAGE_KEY = "talon_chat_session_id"
+
 interface ChatStore {
   messages: Message[]
   sessionId: string
@@ -33,15 +35,23 @@ interface ChatStore {
   setConnected: (v: boolean) => void
   setPendingPrompt: (p: string | null) => void
   stripTrailingError: () => void
+  setSessionId: (sessionId: string) => void
+  loadMessagesFromHistory: (turns: { role: string; content: string }[]) => void
 }
 
 function uid(): string {
   return crypto.randomUUID()
 }
 
+function getStoredSessionId(): string {
+  if (typeof window === "undefined") return uid()
+  const stored = localStorage.getItem(CHAT_SESSION_STORAGE_KEY)
+  return stored ?? uid()
+}
+
 export const useChatStore = create<ChatStore>((set) => ({
   messages: [],
-  sessionId: uid(),
+  sessionId: getStoredSessionId(),
   pendingPrompt: null,
   isConnected: false,
 
@@ -126,6 +136,21 @@ export const useChatStore = create<ChatStore>((set) => ({
 
   setConnected: (isConnected) => set({ isConnected }),
   setPendingPrompt: (pendingPrompt) => set({ pendingPrompt }),
+  setSessionId: (sessionId) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(CHAT_SESSION_STORAGE_KEY, sessionId)
+    }
+    set({ sessionId })
+  },
+  loadMessagesFromHistory: (turns) =>
+    set({
+      messages: turns.map((t, i) => ({
+        id: `hist-${i}-${t.role}`,
+        role: t.role as "user" | "assistant",
+        content: t.content,
+        createdAt: new Date(),
+      })),
+    }),
   stripTrailingError: () =>
     set((s) => {
       const msgs = [...s.messages]

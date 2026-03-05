@@ -1,4 +1,4 @@
-import type { HealthResponse } from "../types/api"
+import type { ChatHistoryResponse, HealthResponse } from "../types/api"
 
 const BASE = "/api"
 
@@ -31,6 +31,16 @@ export async function sendMessage(
       (err["recoverable"] as boolean) ?? false,
     )
   }
+}
+
+export async function fetchChatHistory(sessionId: string): Promise<ChatHistoryResponse> {
+  const res = await fetch(
+    `${BASE}/chat/history?session_id=${encodeURIComponent(sessionId)}`,
+  )
+  if (!res.ok) {
+    throw new APIError(res.status, "Failed to load chat history")
+  }
+  return (await res.json()) as ChatHistoryResponse
 }
 
 export async function fetchHealth(): Promise<HealthResponse> {

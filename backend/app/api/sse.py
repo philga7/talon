@@ -121,11 +121,13 @@ async def _event_stream(
                 resolved = registry.resolve(name)
                 if not resolved:
                     result_data = {"error": f"Unknown tool: {name}"}
+                    success = False
                 else:
                     skill, tool_name = resolved
                     result = await executor.run(skill, tool_name, args)
                     result_data = result.data if result.success else {"error": result.error}
-                yield _sse_event("tool_result", {"tool": name, "result": result_data})
+                    success = result.success
+                yield _sse_event("tool_result", {"tool": name, "result": result_data, "success": success})
                 request.messages = list(request.messages) + [
                     ChatMessage(
                         role="tool",

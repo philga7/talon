@@ -1,6 +1,6 @@
 """Chat API: unified entry point (ChatRouter) with tool-calling loop."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +23,19 @@ from app.skills.registry import SkillRegistry
 router = APIRouter(prefix="/api", tags=["chat"])
 
 
+class TurnInHistory(BaseModel):
+    """Single turn in chat history."""
+
+    role: str
+    content: str
+
+
+class ChatHistoryResponse(BaseModel):
+    """Conversation history for a session (for UI restore)."""
+
+    turns: list[TurnInHistory]
+
+
 class ChatRequest(BaseModel):
     """Chat request: message and session for context."""
 
@@ -37,6 +50,21 @@ class ChatResponse(BaseModel):
     content: str
     provider: str
     tokens: dict[str, int] | None = None
+
+
+@router.get("/chat/history", response_model=ChatHistoryResponse)
+async def chat_history(
+    session_id: str = Query(..., min_length=1, max_length=128),
+    persona_id: str = Query(default="main", max_length=64),
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    memory: MemoryEngine = Depends(get_memory),  # noqa: B008
+) -> ChatHistoryResponse:
+    """Return persisted turns for a session in chronological order (for UI restore after reload)."""
+    entries = await memory.episodic_store.get_turns_for_session(
+        db, session_id=session_id, persona_id=persona_id
+    )
+    turns = [TurnInHistory(role=e.role, content=e.content) for e in entries]
+    return ChatHistoryResponse(turns=turns)
 
 
 @router.post("/chat", response_model=ChatResponse)
