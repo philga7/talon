@@ -33,6 +33,11 @@ def _infer_tool_name_for_empty(args: dict[str, Any], tools_sent: list[dict[str, 
     """When provider returns empty tool name: infer from args. Internet search = SearXNG."""
     if "query" in args and "url" not in args:
         return "searxng_search__search"
+    if "url" in args:
+        return (tools_sent[index].get("function") or {}).get("name") or "" if index < len(tools_sent) else ""
+    # Empty/minimal args from Ollama: assume web search (common case)
+    if not args or not any(k in args for k in ("url", "text", "ticker")):
+        return "searxng_search__search"
     if index < len(tools_sent):
         return (tools_sent[index].get("function") or {}).get("name") or ""
     return ""
