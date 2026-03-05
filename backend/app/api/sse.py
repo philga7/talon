@@ -43,6 +43,11 @@ def _sse_event(name: str, data: object) -> str:
     return f"event: {name}\ndata: {payload}\n\n"
 
 
+def _sse_comment(text: str) -> str:
+    """SSE comment line (keeps connection alive; ignored by client)."""
+    return f": {text}\n\n"
+
+
 async def _event_stream(
     session_id: str,
     prompt: str,
@@ -76,6 +81,7 @@ async def _event_stream(
             persona_id=persona_id,
             prompt_length=len(prompt),
         )
+        yield _sse_comment("ok")  # Keep connection alive before first LLM chunk (avoids uvicorn timeout_keep_alive)
         iteration = 0
         # Accumulate all assistant tokens across iterations so we can persist the final turn.
         assistant_tokens: list[str] = []
