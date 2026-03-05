@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.llm.react_tools import parse_plain_text_tool_calls, strip_tool_blocks
 
 
