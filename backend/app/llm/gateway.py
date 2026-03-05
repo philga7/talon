@@ -120,6 +120,11 @@ class LLMGateway:
             if not breaker.can_attempt():
                 continue
 
+            log.info(
+                "llm_stream_start",
+                provider=provider.name,
+                model=provider.model,
+            )
             try:
                 async for chunk in self._stream_from_provider(provider, request):
                     yield chunk
