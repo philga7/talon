@@ -81,14 +81,14 @@ async def make_chat_callback(
                 persona_id=persona.id,
                 persona_memories_dir=persona.memories_dir,
             )
-            response = await run_tool_loop(
+            response, last_tool_content = await run_tool_loop(
                 messages=messages,
                 gateway=gateway,  # type: ignore[arg-type]
                 registry=registry,  # type: ignore[arg-type]
                 executor=executor,  # type: ignore[arg-type]
                 model_override=persona.model_override,
             )
-            reply = response.content or ""
+            reply = response.content or last_tool_content or ""
             await save_turn(
                 db=db,
                 session_id=session_id,
