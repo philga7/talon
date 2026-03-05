@@ -1,7 +1,8 @@
-import { type FC, useCallback } from "react"
-import { useChatStore } from "../../stores/chatStore"
+import { type FC, useCallback, useEffect } from "react"
+import { CHAT_SESSION_STORAGE_KEY, useChatStore } from "../../stores/chatStore"
 import { useSSE } from "../../hooks/useSSE"
 import type { SSEEvent } from "../../types/api"
+import { fetchChatHistory } from "../../api/client"
 import { MessageList } from "./MessageList"
 import { ChatInput } from "./ChatInput"
 
@@ -20,7 +21,26 @@ export const ChatWindow: FC = () => {
     setConnected,
     setPendingPrompt,
     stripTrailingError,
+    setSessionId,
+    loadMessagesFromHistory,
   } = useChatStore()
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (!localStorage.getItem(CHAT_SESSION_STORAGE_KEY)) {
+      setSessionId(useChatStore.getState().sessionId)
+    }
+    let cancelled = false
+    void fetchChatHistory(useChatStore.getState().sessionId).then(
+      (data) => {
+        if (!cancelled && data.turns.length > 0) {
+          loadMessagesFromHistory(data.turns)
+        }
+      },
+      () => { /* ignore */ },
+    )
+    return () => { cancelled = true }
+  }, [setSessionId, loadMessagesFromHistory])
 
   const handleEvent = useCallback(
     (event: SSEEvent) => {

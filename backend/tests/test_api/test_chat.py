@@ -10,6 +10,19 @@ from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
+async def test_chat_history_empty_session(client: AsyncClient) -> None:
+    """GET /api/chat/history returns turns for session (empty when none)."""
+    response = await client.get(
+        "/api/chat/history",
+        params={"session_id": "no-such-session"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "turns" in data
+    assert data["turns"] == []
+
+
+@pytest.mark.asyncio
 async def test_chat_uses_gateway_complete(client: AsyncClient) -> None:
     """POST /api/chat delegates to LLM gateway and returns response."""
     fake_gateway = AsyncMock()

@@ -81,6 +81,26 @@ class EpisodicStore:
             entries.reverse()
         return entries
 
+    async def get_turns_for_session(
+        self,
+        db: AsyncSession,
+        session_id: str,
+        persona_id: str = "main",
+        limit: int = 100,
+    ) -> list[EpisodicMemory]:
+        """Return turns for a session in chronological order (for UI history)."""
+        stmt = (
+            select(EpisodicMemory)
+            .where(EpisodicMemory.session_id == session_id)
+            .where(EpisodicMemory.persona_id == persona_id)
+            .where(EpisodicMemory.deleted_at.is_(None))
+            .where(EpisodicMemory.archived_at.is_(None))
+            .order_by(EpisodicMemory.created_at.asc())
+            .limit(limit)
+        )
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
+
     async def count_active(
         self,
         db: AsyncSession,

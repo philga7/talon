@@ -9,6 +9,10 @@ export interface ChatResponse {
   tokens: Record<string, number> | null
 }
 
+export interface ChatHistoryResponse {
+  turns: { role: string; content: string }[]
+}
+
 export interface ProviderHealth {
   name: string
   state: "closed" | "open" | "half_open"
