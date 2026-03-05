@@ -36,6 +36,30 @@ class TalonSettings(BaseSettings):
     rate_limit_default: int = Field(default=100, description="Default requests per minute per IP")
     rate_limit_llm: int = Field(default=20, description="LLM endpoint requests per minute per IP")
 
+    # Memory curation / promotion
+    memory_curate_enabled: bool = Field(
+        default=True,
+        description="Enable background curation job that promotes episodic facts into long-term memory proposals",
+    )
+    memory_write_suggested: bool = Field(
+        default=True,
+        description="Mirror created memory proposals into suggested.md Markdown files",
+    )
+    memory_auto_promote_enabled: bool = Field(
+        default=False,
+        description="Enable automatic promotion of safe memory categories into core Markdown",
+    )
+    memory_auto_promote_confidence_threshold: float = Field(
+        default=0.9,
+        ge=0.0,
+        le=1.0,
+        description="Minimum confidence required for auto-promoted facts",
+    )
+    memory_auto_promote_categories: list[str] = Field(
+        default_factory=lambda: ["user_profile", "integrations"],
+        description="Categories that are eligible for automatic promotion",
+    )
+
     # Database — password from config/secrets/db_password
     db_host: str = Field(default="127.0.0.1", description="PostgreSQL host")
     db_port: int = Field(default=5432, description="PostgreSQL port")

@@ -188,6 +188,47 @@ All provider config lives in `config/providers.yaml`.
 
 ---
 
+## Self-Updating Long-Term Memory
+
+Talon promotes stable facts from episodic memory into persona Markdown (and core matrices) via a background curation pipeline.
+
+- **Data model**
+  - `MemoryProposal` in `app/models/proposal.py` persists curated facts (`persona_id`, `category`, `key`, `value`, `priority`, `confidence`, `status`, `source_session_id`, `source_entry_ids`, timestamps).
+  - Alembic migration `20260305_memory_proposals` creates the `memory_proposals` table.
+- **Curation job**
+  - `memory_curate` in `app/scheduler/jobs.py` runs every 3 hours.
+  - For each persona in `PersonaRegistry`:
+    - Uses `get_last_curated_at` to compute a watermark.
+    - Fetches candidate episodic rows via `fetch_candidate_episodic_entries` (persona-scoped, recent, non-archived, user/assistant roles only).
+    - Calls `curate_episodic_entries` (LLM gateway) to produce `CuratedFact` objects.
+    - Converts to `MemoryProposalCreate` and persists via `create_proposals`.
+    - Optionally mirrors proposals into `data/memories/<persona>/suggested.md` via `write_suggested_markdown`.
+- **Auto-promotion**
+  - Controlled by `TalonSettings`:
+    - `memory_curate_enabled`
+    - `memory_write_suggested`
+    - `memory_auto_promote_enabled`
+    - `memory_auto_promote_confidence_threshold`
+    - `memory_auto_promote_categories`
+  - `auto_promote_for_persona` in `app/memory/promotion.py`:
+    - Selects `pending` proposals with `confidence >= threshold` and `category` in the allowlist.
+    - Merges into `data/memories/<persona>/<category>.md` using `merge_fact_into_core_markdown` (idempotent on key/value, conservative on conflicts).
+    - Marks successful proposals as `accepted`; logs conflicts and skips for manual review.
+- **Matrix merge helper (optional)**
+  - `merge_into_matrix` in `app/memory/matrix_merge.py` updates an in-memory `core_matrix` dict from a list of `CuratedFact`, reusing the compressor’s `(category, key)` dedupe semantics.
+  - Intended for admin/CLI tooling; Markdown remains the canonical source.
+- **Review API + UI**
+  - Backend:
+    - `app/api/memory_review.py` exposes:
+      - `GET /api/memory/proposals?persona_id=&status=` → paginated proposals plus episodic excerpts.
+      - `POST /api/memory/proposals/{id}/accept` → merge into Markdown and mark `accepted`.
+      - `POST /api/memory/proposals/{id}/reject` → mark `rejected` (no merge).
+  - Frontend:
+    - `MemoryReview` component lists proposals (grouped, filterable by status) with Accept / Reject actions.
+    - Accessible via the **Memory Review** tab in the web UI.
+
+---
+
 ## CI / GitHub Actions
 
 - CI runs on GitHub Actions in `.github/workflows/ci.yml`.

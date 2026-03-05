@@ -11,7 +11,7 @@ from skills.bird.main import BirdSkill
 @pytest.fixture
 def skill() -> BirdSkill:
     s = BirdSkill()
-    s._bird_path = "/usr/local/bin/bird"
+    s._bird_path = "/usr/local/bin/bird"  # pyright: ignore[reportPrivateUsage]
     return s
 
 
@@ -43,7 +43,7 @@ async def test_search_tweets_success(skill: BirdSkill) -> None:
 
 @pytest.mark.asyncio
 async def test_bird_binary_not_found(skill: BirdSkill) -> None:
-    skill._bird_path = None
+    skill._bird_path = None  # pyright: ignore[reportPrivateUsage]
     result = await skill.execute("read_tweet", {"url": "https://x.com/foo/status/1"})
     assert result.success is False
     assert "not found" in (result.error or "")
@@ -69,7 +69,7 @@ async def test_bird_timeout(skill: BirdSkill) -> None:
 
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
         with patch("asyncio.wait_for", side_effect=TimeoutError()):
-            result = await skill._run_bird("read_tweet", ["read", "http://example.com"])
+            result = await skill._run_bird("read_tweet", ["read", "http://example.com"])  # pyright: ignore[reportPrivateUsage]
 
     assert result.success is False
     assert "timed out" in (result.error or "")
@@ -84,7 +84,7 @@ async def test_unknown_tool(skill: BirdSkill) -> None:
 
 def test_health_check_with_binary() -> None:
     skill = BirdSkill()
-    skill._bird_path = "/usr/bin/bird"
+    skill._bird_path = "/usr/bin/bird"  # pyright: ignore[reportPrivateUsage]
     assert skill.health_check() is True
 
 

@@ -103,14 +103,18 @@ class TestRegisterBuiltinJobs:
         memory = MagicMock()
         memory.working_store = MagicMock()
         gateway = MagicMock()
+        session_factory = MagicMock()
+        persona_registry = MagicMock()
         register_builtin_jobs(
             sched,
             memory=memory,
             gateway=gateway,
             working=memory.working_store,
             log_file=Path("/tmp/test.jsonl"),
+            session_factory=session_factory,
+            persona_registry=persona_registry,
         )
-        assert sched.job_count == 6
+        assert sched.job_count == 7
         sched.start()
         try:
             jobs: list[dict[str, Any]] = sched.list_jobs()
@@ -121,5 +125,6 @@ class TestRegisterBuiltinJobs:
             assert "working_memory_gc" in job_ids
             assert "episodic_archive" in job_ids
             assert "session_cleanup" in job_ids
+            assert "memory_curate" in job_ids
         finally:
             sched.shutdown()

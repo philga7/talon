@@ -42,7 +42,7 @@ async def test_all_providers_down_raises() -> None:
     async def failing_call(_p: Any, _r: Any) -> Any:
         raise RuntimeError("provider down")
 
-    gateway._call_provider = failing_call  # type: ignore[assignment]
+    gateway._call_provider = failing_call  # type: ignore[assignment]  # pyright: ignore[reportPrivateUsage]
 
     with pytest.raises(AllProvidersDown):
         await gateway.complete(_make_request())
@@ -58,7 +58,7 @@ async def test_fallback_chain_exhaustion() -> None:
         raise RuntimeError("boom")
 
     gateway = LLMGateway(providers=_make_providers(3))
-    gateway._call_provider = tracked_failing_call  # type: ignore[assignment]
+    gateway._call_provider = tracked_failing_call  # type: ignore[assignment]  # pyright: ignore[reportPrivateUsage]
 
     with pytest.raises(AllProvidersDown):
         await gateway.complete(_make_request())
@@ -79,7 +79,7 @@ async def test_circuit_breaker_opens_after_repeated_failures() -> None:
         call_count += 1
         raise RuntimeError("fail")
 
-    gateway._call_provider = counting_fail  # type: ignore[assignment]
+    gateway._call_provider = counting_fail  # type: ignore[assignment]  # pyright: ignore[reportPrivateUsage]
 
     for _ in range(3):
         with pytest.raises(AllProvidersDown):
@@ -93,7 +93,7 @@ async def test_half_open_probe_success_closes_breaker() -> None:
     """After recovery timeout, a successful probe closes the breaker."""
     providers = _make_providers(1)
     gateway = LLMGateway(providers=providers, failure_threshold=1, recovery_timeout=0.0)
-    breaker = gateway._breakers[providers[0].name]
+    breaker = gateway._breakers[providers[0].name]  # pyright: ignore[reportPrivateUsage]
 
     fail_then_succeed = [True]
 
@@ -131,7 +131,7 @@ async def test_concurrent_failures_dont_corrupt_state() -> None:
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     assert all(isinstance(r, AllProvidersDown) for r in results)
-    breaker = gateway._breakers[providers[0].name]
+    breaker = gateway._breakers[providers[0].name]  # pyright: ignore[reportPrivateUsage]
     assert breaker.current_state() in ("open", "half_open")
 
 

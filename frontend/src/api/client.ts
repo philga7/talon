@@ -1,4 +1,4 @@
-import type { ChatHistoryResponse, HealthResponse } from "../types/api"
+import type { ChatHistoryResponse, HealthResponse, MemoryProposal } from "../types/api"
 
 const BASE = "/api"
 
@@ -49,4 +49,38 @@ export async function fetchHealth(): Promise<HealthResponse> {
     throw new APIError(res.status, "Health check failed")
   }
   return (await res.json()) as HealthResponse
+}
+
+export async function fetchMemoryProposals(
+  personaId?: string,
+  status: "pending" | "accepted" | "rejected" | null = "pending",
+): Promise<MemoryProposal[]> {
+  const params = new URLSearchParams()
+  if (personaId) params.set("persona_id", personaId)
+  if (status !== null) params.set("status", status)
+  const res = await fetch(`${BASE}/memory/proposals?${params.toString()}`)
+  if (!res.ok) {
+    throw new APIError(res.status, "Failed to load memory proposals")
+  }
+  return (await res.json()) as MemoryProposal[]
+}
+
+export async function acceptMemoryProposal(id: string): Promise<MemoryProposal> {
+  const res = await fetch(`${BASE}/memory/proposals/${encodeURIComponent(id)}/accept`, {
+    method: "POST",
+  })
+  if (!res.ok) {
+    throw new APIError(res.status, "Failed to accept proposal")
+  }
+  return (await res.json()) as MemoryProposal
+}
+
+export async function rejectMemoryProposal(id: string): Promise<MemoryProposal> {
+  const res = await fetch(`${BASE}/memory/proposals/${encodeURIComponent(id)}/reject`, {
+    method: "POST",
+  })
+  if (!res.ok) {
+    throw new APIError(res.status, "Failed to reject proposal")
+  }
+  return (await res.json()) as MemoryProposal
 }

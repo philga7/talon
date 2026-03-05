@@ -50,6 +50,15 @@ Multi-provider fallback chain with per-provider circuit breakers. When a provide
 
 The memory engine assembles all three tiers into the system prompt on every request. Introspectable via `/api/memory` and the frontend Memory tab.
 
+On top of this, Talon includes a **self-updating long-term memory pipeline**:
+
+- Background job `memory_curate` periodically:
+  - Scans recent episodic memory per persona.
+  - Uses the LLM gateway to extract structured `CuratedFact` objects.
+  - Persists them as `MemoryProposal` rows in `memory_proposals` and (optionally) mirrors them into `data/memories/<persona>/suggested.md`.
+- Optional auto-promotion (`memory_auto_promote_enabled`) promotes safe categories (e.g. `user_profile`) directly into persona Markdown using conservative conflict rules and confidence thresholds (`memory_auto_promote_confidence_threshold`, `memory_auto_promote_categories`).
+- A review API and UI (`/api/memory/proposals` + **Memory Review** tab) let you inspect proposals with source snippets and Accept/Reject them before they touch core memories.
+
 ### Multi-Persona System
 Config-driven identity layers defined in `config/personas.yaml`. Each persona has its own core memory directory, optional model override, and channel bindings (e.g. specific Slack channels route to `analyst` while others route to `main`). Episodic memory is shared but persona-filtered. Unknown channels fall back to the default persona.
 
@@ -61,13 +70,14 @@ Self-contained tools implementing `BaseSkill` with TOML manifests. The `SkillReg
 **Ported skills:** `searxng_search`, `yahoo_finance`, `weather_enhanced`, `hostinger_email`, `bird` (X/Twitter CLI), `neuron_brief` (AI newsletter fetcher), `notify` (push notifications via ntfy).
 
 ### Real-Time Web UI
-React 18 + TypeScript frontend with TailwindCSS v4 + daisyUI v5. Four tabs:
+React 18 + TypeScript frontend with TailwindCSS v4 + daisyUI v5. Five tabs:
 - **Chat** — streamed responses via SSE with tool-use indicators
 - **Health** — per-provider circuit breaker status, memory stats
 - **Memory** — core matrix viewer with category collapsing, search/filter, priority badges
+- **Memory Review** — proposal browser for the self-updating memory pipeline (category/key/value, confidence, priority, source excerpts) with Accept/Reject actions
 - **Logs** — real-time application log stream with level filtering and auto-scroll
 
-Memory and Log panels are lazy-loaded via `React.lazy()` for fast initial load.
+Memory-related panels are lazy-loaded via `React.lazy()` for fast initial load.
 
 ### Integrations
 Discord (via discord.py), Slack (via slack_bolt Socket Mode), Telegram (via python-telegram-bot long-polling), and generic webhook receiver. All route through the unified `ChatRouter`. Integrations start conditionally — if the secret file exists, the integration starts; if not, it silently skips. No crash, no error.
@@ -167,6 +177,9 @@ The Vite dev server proxies `/api/*` to the backend.
 |--------|------|-------------|
 | GET | `/api/health` | System health, provider circuit breakers, memory stats |
 | GET | `/api/memory` | Compiled core matrix and memory stats |
+| GET | `/api/memory/proposals` | List memory proposals (filter by persona/status) with source excerpts |
+| POST | `/api/memory/proposals/{id}/accept` | Accept a proposal and merge it into persona Markdown |
+| POST | `/api/memory/proposals/{id}/reject` | Reject a proposal without merging it |
 | POST | `/api/chat` | Send a message (full tool-calling loop) |
 | GET | `/api/sse/{session_id}?prompt=…` | SSE stream: `token`, `tool_start`, `tool_result`, `done`, `error` |
 | GET | `/api/skills` | Loaded skills and tools |
