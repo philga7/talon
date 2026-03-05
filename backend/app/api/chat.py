@@ -1,5 +1,7 @@
 """Chat API: unified entry point (ChatRouter) with tool-calling loop."""
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,6 +30,7 @@ class TurnInHistory(BaseModel):
 
     role: str
     content: str
+    created_at: datetime
 
 
 class ChatHistoryResponse(BaseModel):
@@ -61,9 +64,18 @@ async def chat_history(
 ) -> ChatHistoryResponse:
     """Return persisted turns for a session in chronological order (for UI restore after reload)."""
     entries = await memory.episodic_store.get_turns_for_session(
-        db, session_id=session_id, persona_id=persona_id
+        db,
+        session_id=session_id,
+        persona_id=persona_id,
     )
-    turns = [TurnInHistory(role=e.role, content=e.content) for e in entries]
+    turns = [
+        TurnInHistory(
+            role=e.role,
+            content=e.content,
+            created_at=e.created_at,
+        )
+        for e in entries
+    ]
     return ChatHistoryResponse(turns=turns)
 
 

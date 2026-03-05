@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from structlog import get_logger
 
-from app.api.chat_router import build_messages
+from app.api.chat_router import build_messages, save_turn
 from app.core.errors import AllProvidersDown
 from app.dependencies import (
     get_db,
@@ -70,6 +70,8 @@ async def _event_stream(
             model_override=persona.model_override,
         )
         iteration = 0
+        # Accumulate all assistant tokens across iterations so we can persist the final turn.
+        assistant_tokens: list[str] = []
         while iteration < MAX_SSE_ITERATIONS:
             iteration += 1
             log.info("sse_tool_loop_iteration", iteration=iteration, max_steps=MAX_SSE_ITERATIONS)
@@ -82,6 +84,7 @@ async def _event_stream(
                     break
                 if isinstance(chunk, str):
                     content_parts.append(chunk)
+                    assistant_tokens.append(chunk)
                     yield _sse_event("token", chunk)
             # ReAct fallback: no native tool_calls but plain text may contain <tool>...</tool>
             assistant_content_for_msg = ""
@@ -93,6 +96,20 @@ async def _event_stream(
                     assistant_content_for_msg = strip_tool_blocks(full_content)
                     log.info("react_tool_calls_parsed_sse", count=len(tool_calls_so_far))
             if not tool_calls_so_far:
+                # No tool calls: we have the final assistant message, so persist the turn.
+                final_content = "".join(assistant_tokens)
+                try:
+                    await save_turn(
+                        db=db,
+                        session_id=session_id,
+                        user_message=prompt,
+                        assistant_message=final_content,
+                        memory=memory,
+                        persona_id=persona.id,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    # Persisting history must never break the live stream.
+                    log.warning("sse_save_turn_failed", error=str(exc))
                 yield _sse_event("done", {})
                 return
             # Append assistant message with tool_calls

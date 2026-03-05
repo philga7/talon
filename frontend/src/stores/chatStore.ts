@@ -1,4 +1,5 @@
 import { create } from "zustand"
+import type { ChatHistoryTurn } from "../types/api"
 
 export interface ToolEvent {
   name: string
@@ -36,7 +37,7 @@ interface ChatStore {
   setPendingPrompt: (p: string | null) => void
   stripTrailingError: () => void
   setSessionId: (sessionId: string) => void
-  loadMessagesFromHistory: (turns: { role: string; content: string }[]) => void
+  loadMessagesFromHistory: (turns: ChatHistoryTurn[]) => void
 }
 
 function uid(): string {
@@ -148,7 +149,7 @@ export const useChatStore = create<ChatStore>((set) => ({
         id: `hist-${i}-${t.role}`,
         role: t.role as "user" | "assistant",
         content: t.content,
-        createdAt: new Date(),
+        createdAt: new Date(t.created_at),
       })),
     }),
   stripTrailingError: () =>

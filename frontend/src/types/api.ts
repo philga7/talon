@@ -9,8 +9,14 @@ export interface ChatResponse {
   tokens: Record<string, number> | null
 }
 
+export interface ChatHistoryTurn {
+  role: string
+  content: string
+  created_at: string
+}
+
 export interface ChatHistoryResponse {
-  turns: { role: string; content: string }[]
+  turns: ChatHistoryTurn[]
 }
 
 export interface ProviderHealth {
