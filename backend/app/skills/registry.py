@@ -178,6 +178,13 @@ class SkillRegistry:
         for skill in self._skills:
             if skill.name == name and len(skill.tools) == 1:
                 return (skill, skill.tools[0].name)
+        # Fallback: some providers stream the same tool name twice (e.g. "searxng_search__search" + "searxng_search__search").
+        if len(name) >= 2 and len(name) % 2 == 0:
+            half = len(name) // 2
+            if name[:half] == name[half:]:
+                resolved = self._tool_to_skill.get(name[:half])
+                if resolved is not None:
+                    return resolved
         log.warning(
             "tool_resolve_unknown",
             name=name,
