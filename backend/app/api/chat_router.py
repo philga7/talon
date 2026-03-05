@@ -74,14 +74,19 @@ async def run_tool_loop(
     registry: SkillRegistry,
     executor: SkillExecutor,
     model_override: str | None = None,
-) -> LLMResponse:
-    """Run complete() in a loop until no tool_calls; return final response."""
+) -> tuple[LLMResponse, str | None]:
+    """Run complete() in a loop until no tool_calls; return (final response, last_tool_content).
+
+    last_tool_content is the raw content of the last tool result in the loop, for use when
+    the model returns empty final content (so the API can surface the tool output to the user).
+    """
     request = LLMRequest(
         messages=messages,
         tools=registry.tools_for_llm() or None,
         model_override=model_override,
     )
     response: LLMResponse = await gateway.complete(request)
+    last_tool_content: str | None = None
     iteration = 0
     while iteration < MAX_TURN_ITERATIONS:
         iteration += 1
@@ -94,7 +99,7 @@ async def run_tool_loop(
                 tool_calls = synthetic
                 log.info("react_tool_calls_parsed", count=len(tool_calls), from_content=True)
         if not tool_calls or not isinstance(tool_calls, list):
-            return response
+            return (response, last_tool_content)
         # Append assistant message (content may be empty); strip <tool> blocks when from ReAct
         assistant_content = response.content or ""
         if tool_calls and any(tc.get("id", "").startswith("react-") for tc in tool_calls):
@@ -144,12 +149,13 @@ async def run_tool_loop(
                 tool_content = _tool_result_content(
                     result.data if result.success else {"error": result.error}
                 )
+            last_tool_content = tool_content
             request.messages = list(request.messages) + [
                 ChatMessage(role="tool", content=tool_content, tool_call_id=(tc.get("id") or ""))
             ]
         response = await gateway.complete(request)
     log.warning("tool_loop_max_iterations", max_=MAX_TURN_ITERATIONS)
-    return response
+    return (response, last_tool_content)
 
 
 async def save_turn(

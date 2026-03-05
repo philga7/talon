@@ -60,23 +60,25 @@ async def chat(
             persona_id=persona.id,
             persona_memories_dir=persona.memories_dir,
         )
-        response = await run_tool_loop(
+        response, last_tool_content = await run_tool_loop(
             messages=messages,
             gateway=gateway,
             registry=registry,
             executor=executor,
             model_override=persona.model_override,
         )
+        # When the model returns empty content after running tools, surface the last tool result.
+        content = response.content or last_tool_content or ""
         await save_turn(
             db=db,
             session_id=request.session_id,
             user_message=request.message,
-            assistant_message=response.content or "",
+            assistant_message=content,
             memory=memory,
             persona_id=persona.id,
         )
         return ChatResponse(
-            content=response.content or "",
+            content=content,
             provider=response.provider,
             tokens=response.tokens,
         )
