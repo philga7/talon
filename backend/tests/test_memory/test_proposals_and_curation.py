@@ -8,17 +8,24 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.config import get_settings
 from app.dependencies import init_db, init_memory
 from app.llm.models import LLMRequest, LLMResponse
-from app.memory.curator import CuratedFact, _parse_curator_response, curate_episodic_entries  # pyright: ignore[reportPrivateUsage]
-from app.memory.markdown_writer import Fact, _append_facts_to_lines, write_suggested_markdown  # pyright: ignore[reportPrivateUsage]
+from app.memory.curator import (  # pyright: ignore[reportPrivateUsage]
+  CuratedFact,
+  _parse_curator_response,
+  curate_episodic_entries,
+)
+from app.memory.markdown_writer import (  # pyright: ignore[reportPrivateUsage]
+  Fact,
+  _append_facts_to_lines,
+  write_suggested_markdown,
+)
 from app.memory.matrix_merge import merge_into_matrix
 from app.memory.promotion import auto_promote_for_persona
 from app.memory.proposals import MemoryProposalCreate, create_proposals
 from app.models.episodic import EpisodicMemory
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class DummyGateway:

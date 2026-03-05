@@ -4,8 +4,6 @@ Each job is a plain async function. Dependencies are passed via kwargs
 at registration time (no closures, no globals).
 """
 
-# ruff: noqa=I001
-
 from __future__ import annotations
 
 import os
