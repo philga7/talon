@@ -142,9 +142,23 @@ class BirdSkill(BaseSkill):
     async def execute(self, tool_name: str, params: dict[str, Any]) -> SkillResult:
         match tool_name:
             case "read_tweet":
-                return await self._run_bird(tool_name, ["read", params["url"]])
+                url = params.get("url") or ""
+                if not url.strip():
+                    return SkillResult(
+                        tool_name=tool_name,
+                        success=False,
+                        error="read_tweet requires a tweet URL",
+                    )
+                return await self._run_bird(tool_name, ["read", url])
             case "read_thread":
-                return await self._run_bird(tool_name, ["thread", params["url"]])
+                url = params.get("url") or ""
+                if not url.strip():
+                    return SkillResult(
+                        tool_name=tool_name,
+                        success=False,
+                        error="read_thread requires a tweet URL",
+                    )
+                return await self._run_bird(tool_name, ["thread", url])
             case "search_tweets":
                 count = str(min(max(int(params.get("count", 5)), 1), 20))
                 return await self._run_bird(
