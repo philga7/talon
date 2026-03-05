@@ -162,11 +162,11 @@ def get_persona_registry() -> PersonaRegistry:
     return _persona_registry
 
 
-def init_scheduler(settings: TalonSettings) -> TalonScheduler:
+def init_scheduler(settings: TalonSettings, persona_registry: PersonaRegistry) -> TalonScheduler:
     """Initialize the scheduler and register built-in jobs."""
     global _scheduler
-    if _memory is None or _gateway is None:
-        raise RuntimeError("Memory and gateway must be initialized before scheduler")
+    if _memory is None or _gateway is None or _async_session_factory is None:
+        raise RuntimeError("Memory, gateway, and database must be initialized before scheduler")
 
     from app.scheduler.jobs import register_builtin_jobs
 
@@ -177,6 +177,8 @@ def init_scheduler(settings: TalonSettings) -> TalonScheduler:
         gateway=_gateway,
         working=_memory.working_store,
         log_file=settings.log_file_path,
+        session_factory=_async_session_factory,
+        persona_registry=persona_registry,
     )
     return _scheduler
 
