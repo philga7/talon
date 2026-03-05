@@ -57,7 +57,9 @@ class SearxngSearchSkill(BaseSkill):
     async def execute(self, tool_name: str, params: dict[str, Any]) -> SkillResult:
         if tool_name != "search":
             return SkillResult(tool_name=tool_name, success=False, data=None, error=f"Unknown tool: {tool_name}")
-        query = params.get("query") or ""
+        query = (params.get("query") or "").strip()
+        if not query:
+            query = "top news headlines today"
         max_results = int(params.get("max_results") or 5)
         max_results = min(max(1, max_results), 10)
         return await self._search(query, max_results)
