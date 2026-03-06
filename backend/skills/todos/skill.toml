@@ -1,0 +1,10 @@
+[skill]
+name = "todos"
+version = "1.0.0"
+description = "Read, write, and append to personal and work todo lists (data/memories/main/todos/personal.md and work.md)"
+enabled = true
+
+[skill.permissions]
+network = false
+filesystem = true
+# Writes confined to data/memories/main/todos/*.md via todos_io path checks.

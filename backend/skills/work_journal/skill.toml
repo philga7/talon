@@ -1,0 +1,10 @@
+[skill]
+name = "work_journal"
+version = "1.0.0"
+description = "Read, write, append, list, and move work journal entries (YYYY-MM-dd.md) in data/memories/main/journal/work"
+enabled = true
+
+[skill.permissions]
+network = false
+filesystem = true
+# Writes confined to data/memories/main/journal/work via journal_io path checks.
