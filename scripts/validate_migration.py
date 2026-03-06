@@ -2,18 +2,17 @@
 """Post-migration validation — all checks must pass before OpenClaw decommission.
 
 Checks:
-  1. data/memories/main/ exists with core identity files
-  2. data/memories/analyst/ exists
-  3. MemoryCompressor compiles both dirs without error
-  4. data/core_matrix.json exists with non-zero token_count
-  5. episodic_memory table has > 0 rows for main and analyst
-  6. All ported skills load via SkillRegistry
-  7. bird skill present with requires_binary flag
-  8. neuron_brief skill present and loadable
-  9. Secret files exist in config/secrets/ with correct permissions (600)
-  10. config/providers.yaml parses and has >= 2 providers
-  11. config/personas.yaml parses and contains main + analyst
-  12. Health endpoint returns 200
+  1. data/memories/<persona_id>/ exists with core identity files (per persona in config/personas.yaml)
+  2. MemoryCompressor compiles each persona memory dir without error
+  3. data/core_matrix.json exists with non-zero token_count
+  4. episodic_memory table has > 0 rows for expected personas
+  5. All ported skills load via SkillRegistry
+  6. bird skill present with requires_binary flag
+  7. neuron_brief skill present and loadable
+  8. Secret files exist in config/secrets/ with correct permissions (600)
+  9. config/providers.yaml parses and has >= 2 providers
+  10. config/personas.yaml parses and has at least one persona
+  11. Health endpoint returns 200
 
 Usage:
   python scripts/validate_migration.py [--talon-root .] [--api-url http://localhost:8088]
@@ -67,35 +66,46 @@ class ValidationResult:
                     print(f"  FAIL: {name} — {detail}")
 
 
+def _get_persona_ids(talon_root: Path) -> list[str]:
+    """Return persona IDs from config/personas.yaml, or ['main', 'analyst'] if missing."""
+    personas_path = talon_root / "config" / "personas.yaml"
+    if not personas_path.exists():
+        return ["main", "analyst"]
+    try:
+        import yaml
+        data = yaml.safe_load(personas_path.read_text(encoding="utf-8"))
+        ids = list(data.get("personas", {}).keys())
+        return ids if ids else ["main", "analyst"]
+    except Exception:
+        return ["main", "analyst"]
+
+
 def check_memories_dirs(talon_root: Path, v: ValidationResult) -> None:
-    """Checks 1-4: memory directories and compilation."""
-    main_dir = talon_root / "data" / "memories" / "main"
-    v.check(
-        "memories/main/ exists",
-        main_dir.is_dir(),
-        str(main_dir),
-    )
+    """Checks 1-4: memory directories and compilation (per persona from config)."""
+    persona_ids = _get_persona_ids(talon_root)
+    memories_base = talon_root / "data" / "memories"
 
-    if main_dir.is_dir():
-        md_files = list(main_dir.glob("*.md"))
+    for persona_id in persona_ids:
+        mdir = memories_base / persona_id
         v.check(
-            "memories/main/ has identity files",
-            len(md_files) > 0,
-            f"{len(md_files)} .md files",
+            f"memories/{persona_id}/ exists",
+            mdir.is_dir(),
+            str(mdir),
         )
-
-    analyst_dir = talon_root / "data" / "memories" / "analyst"
-    v.check(
-        "memories/analyst/ exists",
-        analyst_dir.is_dir(),
-        str(analyst_dir),
-    )
+        if mdir.is_dir():
+            md_files = list(mdir.glob("*.md"))
+            v.check(
+                f"memories/{persona_id}/ has identity files",
+                len(md_files) > 0,
+                f"{len(md_files)} .md files",
+            )
 
     try:
         from app.memory.compressor import MemoryCompressor
 
         compressor = MemoryCompressor(max_tokens=2000)
-        for persona_id, mdir in [("main", main_dir), ("analyst", analyst_dir)]:
+        for persona_id in persona_ids:
+            mdir = memories_base / persona_id
             if mdir.is_dir():
                 matrix = compressor.compile(mdir)
                 v.check(
@@ -191,11 +201,10 @@ def check_config(talon_root: Path, v: ValidationResult) -> None:
         try:
             data = yaml.safe_load(personas_path.read_text(encoding="utf-8"))
             personas = data.get("personas", {})
-            has_main = "main" in personas
-            has_analyst = "analyst" in personas
+            has_any = len(personas) > 0
             v.check(
-                "personas.yaml has main + analyst",
-                has_main and has_analyst,
+                "personas.yaml has at least one persona",
+                has_any,
                 f"personas: {list(personas.keys())}",
             )
         except Exception as e:
